@@ -1,74 +1,123 @@
 {% extends "base.html" %}
-{% block title %}Scan Manual Bill{% endblock %}
+{% block title %}Scan / Upload Bill{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <h4>Scan a Manual / Handwritten Bill</h4>
+  <h4>Scan &amp; Add Sales Invoice</h4>
   <a href="{{ url_for('sales.new_invoice') }}" class="btn btn-outline-secondary btn-sm">Back to POS</a>
 </div>
 <p class="text-muted">
-  For the times a bill was written by hand instead of through the software. Take a photo (or upload
-  one) of the paper bill, the text is read directly on this device, and you confirm/fix it below.
-  <strong>The photo itself is never uploaded or saved anywhere</strong> &mdash; only the text you
-  confirm gets added as a new invoice.
+  For manual/handwritten bills (or a power-cut day when the software wasn't used yet). Read a bill's
+  item codes and quantities from a photo or an Excel file, review the matched items below, then save
+  it as a real invoice &mdash; stock is reduced exactly like a normal sale.
+  <strong>The photo or file itself is never uploaded or stored</strong> &mdash; only the text and the
+  matched items you confirm are saved.
 </p>
 
 <div class="row g-3">
-  <div class="col-lg-6">
-    <div class="card p-3 mb-3">
-      <h6>1. Photo of the bill</h6>
-      <input type="file" id="billImage" accept="image/*" capture="environment" class="form-control mb-2">
-      <img id="billPreview" style="display:none; max-width:100%; border-radius:.5rem; margin-bottom:10px;">
-      <button type="button" id="extractBtn" class="btn btn-primary w-100" disabled onclick="extractText()">
-        <i class="bi bi-body-text"></i> Extract Text From Photo
-      </button>
-      <div id="ocrProgress" class="mt-2 small text-muted" style="display:none;"></div>
+  <div class="col-lg-7">
+    <ul class="nav nav-tabs mb-3">
+      <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabPhoto" type="button">
+        <i class="bi bi-camera"></i> Scan Photo</button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabExcel" type="button">
+        <i class="bi bi-file-earmark-excel"></i> Upload Excel</button></li>
+    </ul>
+
+    <div class="tab-content">
+      <div class="tab-pane fade show active" id="tabPhoto">
+        <div class="card p-3 mb-3">
+          <h6>1. Photo of the bill</h6>
+          <input type="file" id="billImage" accept="image/*" capture="environment" class="form-control mb-2">
+          <img id="billPreview" style="display:none; max-width:100%; border-radius:.5rem; margin-bottom:10px;">
+          <button type="button" id="extractBtn" class="btn btn-primary w-100" disabled onclick="extractText()">
+            <i class="bi bi-body-text"></i> Read Text From Photo
+          </button>
+          <div id="ocrProgress" class="mt-2 small text-muted" style="display:none;"></div>
+        </div>
+        <div class="card p-3">
+          <h6>2. Confirm the text &amp; matched items</h6>
+          <textarea id="scannedText" class="form-control mb-2" rows="6"
+                    placeholder="The text read from the photo appears here. Lines with a recognized item code (e.g. VKAP-0001) are matched into the cart automatically -- fix this text and click Re-scan Codes if anything looks wrong."></textarea>
+          <button type="button" class="btn btn-outline-secondary btn-sm" onclick="rescanCodesFromText()">
+            <i class="bi bi-arrow-repeat"></i> Re-scan Codes From This Text
+          </button>
+          <div id="matchSummary" class="small text-muted mt-2"></div>
+        </div>
+      </div>
+
+      <div class="tab-pane fade" id="tabExcel">
+        <div class="card p-3">
+          <h6>Upload a bill spreadsheet</h6>
+          <p class="text-muted small">Needs an <code>item_code</code> column and a <code>qty</code> column (an optional <code>unit_price</code> column overrides the item's normal selling price).
+            <a href="{{ url_for('scan.excel_template') }}">Download a starter template</a>.</p>
+          <input type="file" id="excelFile" accept=".xlsx,.xls,.csv" class="form-control mb-2">
+          <button type="button" class="btn btn-primary w-100" onclick="uploadExcel()">
+            <i class="bi bi-upload"></i> Read Items From File
+          </button>
+          <div id="excelProgress" class="mt-2 small text-muted"></div>
+        </div>
+      </div>
     </div>
 
-    <div class="card p-3">
-      <h6>2. Confirm / fix the text</h6>
-      <textarea id="scannedText" name="scanned_text" form="scanForm" class="form-control" rows="10"
-                placeholder="Extracted text will appear here -- check it against the paper bill and fix anything OCR got wrong before saving."></textarea>
-      <small class="text-muted d-block mt-1">This text is what gets saved (as a note on the invoice). The photo itself is discarded after this step.</small>
+    <div class="card p-3 mt-3">
+      <h6>3. Add or fix an item manually</h6>
+      <div class="pos-search-wrap">
+        <i class="bi bi-search pos-search-icon"></i>
+        <input type="text" id="itemSearch" class="form-control pos-search-input" autocomplete="off"
+               placeholder="Type an item code or name to add/fix a line...">
+        <div id="searchDropdown" class="pos-search-dropdown"></div>
+      </div>
     </div>
   </div>
 
-  <div class="col-lg-6">
-    <div class="card p-3">
-      <h6>3. Bill details</h6>
+  <div class="col-lg-5">
+    <div class="card p-3 pos-cart-card">
+      <h6 class="mb-2">Matched Items (Cart)</h6>
+      <div id="cartEmpty" class="text-muted small">Nothing matched yet &mdash; scan a photo, upload a spreadsheet, or add an item manually.</div>
+      <table class="table table-sm" id="cartTable" style="display:none;">
+        <thead><tr><th>Item</th><th style="width:70px;">Qty</th><th>Price</th><th>Total</th><th></th></tr></thead>
+        <tbody id="cartBody"></tbody>
+      </table>
+
       <form method="post" id="scanForm">
-        <div class="mb-2">
-          <label class="form-label small">Customer</label>
-          <select name="customer_id" class="form-select">
-            <option value="">-- Walk-in --</option>
-            {% for c in customers %}
-              <option value="{{ c.id }}">{{ c.name }} ({{ c.customer_code }}){% if c.customer_type=='credit' %} - Credit{% endif %}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="mb-2">
-          <label class="form-label small">Total Amount (as written on the bill)</label>
-          <input type="number" step="0.01" name="total_amount" id="totalAmount" class="form-control" required>
-        </div>
-        <div class="mb-2">
-          <label class="form-label small d-block">Payment Mode</label>
-          <input type="hidden" name="payment_mode" id="scanPaymentMode" value="cash">
-          <div class="pos-pay-toggle" role="group">
-            <button type="button" class="pos-pay-btn active" data-mode="cash" onclick="setScanPaymentMode('cash')">
-              <i class="bi bi-cash-coin"></i> Cash
-            </button>
-            <button type="button" class="pos-pay-btn" data-mode="online" onclick="setScanPaymentMode('online')">
-              <i class="bi bi-phone"></i> Online
-            </button>
-            <button type="button" class="pos-pay-btn" data-mode="credit" onclick="setScanPaymentMode('credit')">
-              <i class="bi bi-journal-text"></i> Credit
-            </button>
+        <input type="hidden" name="scanned_text" id="scannedTextHidden">
+        <div class="row g-2 mt-2">
+          <div class="col-12">
+            <label class="form-label small">Customer</label>
+            <select name="customer_id" class="form-select form-select-sm">
+              <option value="">-- Walk-in --</option>
+              {% for c in customers %}
+                <option value="{{ c.id }}">{{ c.name }} ({{ c.customer_code }}){% if c.customer_type=='credit' %} - Credit{% endif %}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label small d-block">Payment Mode</label>
+            <input type="hidden" name="payment_mode" id="scanPaymentMode" value="cash">
+            <div class="pos-pay-toggle" role="group">
+              <button type="button" class="pos-pay-btn active" data-mode="cash" onclick="setScanPaymentMode('cash')"><i class="bi bi-cash-coin"></i> Cash</button>
+              <button type="button" class="pos-pay-btn" data-mode="online" onclick="setScanPaymentMode('online')"><i class="bi bi-phone"></i> Online</button>
+              <button type="button" class="pos-pay-btn" data-mode="credit" onclick="setScanPaymentMode('credit')"><i class="bi bi-journal-text"></i> Credit</button>
+            </div>
+          </div>
+          <div class="col-6" id="scanPaidWrap" style="display:none;">
+            <label class="form-label small">Amount Paid Now</label>
+            <input type="number" step="0.01" name="amount_paid" class="form-control form-control-sm" value="0">
+          </div>
+          <div class="col-6">
+            <label class="form-label small">Discount</label>
+            <input type="number" step="0.01" name="discount" id="scanDiscount" class="form-control form-control-sm" value="0" oninput="renderCart()">
+          </div>
+          <div class="col-6">
+            <label class="form-label small">Tax</label>
+            <input type="number" step="0.01" name="tax" id="scanTax" class="form-control form-control-sm" value="0" oninput="renderCart()">
           </div>
         </div>
-        <div class="mb-2" id="scanPaidWrap" style="display:none;">
-          <label class="form-label small">Amount Paid Now</label>
-          <input type="number" step="0.01" name="amount_paid" class="form-control" value="0">
-        </div>
-        <button type="submit" class="btn btn-success w-100 mt-2"><i class="bi bi-check-circle"></i> Save as New Invoice</button>
+        <hr>
+        <div class="d-flex justify-content-between"><span>Subtotal</span><strong>Rs. <span id="subTotal">0.00</span></strong></div>
+        <div class="d-flex justify-content-between fs-4 pos-grand-total"><span>Total</span><strong>Rs. <span id="grandTotal">0.00</span></strong></div>
+        <button type="submit" class="btn btn-success btn-lg w-100 mt-3" id="completeBtn" disabled>
+          <i class="bi bi-check-circle"></i> Save as New Invoice
+        </button>
       </form>
     </div>
   </div>
@@ -76,6 +125,109 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.0/tesseract.min.js"></script>
 <script>
+let cart = {}; // item_id -> {code, name, price, qty, stock, unit}
+const ITEMS_ALL = [
+  {% for it in items %}
+  {id: {{ it.id }}, code: {{ it.item_code|tojson }}, name: {{ it.name|tojson }},
+   price: {{ it.selling_price }}, stock: {{ it.stock_qty }}, unit: {{ it.unit|tojson }}},
+  {% endfor %}
+];
+
+function fmt(n) { return n.toFixed(2); }
+
+function addToCart(id, code, name, price, stock, unit, qty) {
+  qty = qty || 1;
+  if (!cart[id]) {
+    cart[id] = {code: code, name: name, price: price, qty: qty, stock: stock, unit: unit};
+  } else {
+    cart[id].qty += qty;
+  }
+  renderCart();
+}
+
+function removeFromCart(id) {
+  delete cart[id];
+  renderCart();
+}
+
+function updateQty(id, qty) {
+  const q = parseFloat(qty) || 0;
+  if (q <= 0) { removeFromCart(id); return; }
+  cart[id].qty = q;
+  renderCart();
+}
+
+function renderCart() {
+  const body = document.getElementById('cartBody');
+  const ids = Object.keys(cart);
+  body.innerHTML = '';
+  let subtotal = 0;
+
+  if (ids.length === 0) {
+    document.getElementById('cartEmpty').style.display = 'block';
+    document.getElementById('cartTable').style.display = 'none';
+    document.getElementById('completeBtn').disabled = true;
+  } else {
+    document.getElementById('cartEmpty').style.display = 'none';
+    document.getElementById('cartTable').style.display = 'table';
+    document.getElementById('completeBtn').disabled = false;
+  }
+
+  ids.forEach(id => {
+    const it = cart[id];
+    const lineTotal = it.qty * it.price;
+    subtotal += lineTotal;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>
+        <input type="hidden" name="item_id[]" value="${id}">
+        ${it.name}<br><small class="text-muted">${it.code}</small>
+      </td>
+      <td><input type="number" step="0.01" name="qty[]" class="form-control form-control-sm" value="${it.qty}" onchange="updateQty(${id}, this.value)"></td>
+      <td><input type="number" step="0.01" name="unit_price[]" class="form-control form-control-sm" value="${it.price}" onchange="cart[${id}].price=parseFloat(this.value)||0; renderCart();"></td>
+      <td>${fmt(lineTotal)}</td>
+      <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFromCart(${id})">X</button></td>
+    `;
+    body.appendChild(tr);
+  });
+
+  const discount = parseFloat(document.getElementById('scanDiscount').value) || 0;
+  const tax = parseFloat(document.getElementById('scanTax').value) || 0;
+  document.getElementById('subTotal').textContent = fmt(subtotal);
+  document.getElementById('grandTotal').textContent = fmt(subtotal - discount + tax);
+}
+
+// ---- manual add/fix search box (same pattern as the POS screen) ----
+const searchInput = document.getElementById('itemSearch');
+const searchDropdown = document.getElementById('searchDropdown');
+let searchMatches = [];
+searchInput.addEventListener('input', function() {
+  const q = searchInput.value.trim().toLowerCase();
+  if (!q) { searchDropdown.classList.remove('show'); searchDropdown.innerHTML = ''; return; }
+  searchMatches = ITEMS_ALL.filter(it => it.code.toLowerCase().includes(q) || it.name.toLowerCase().includes(q)).slice(0, 8);
+  if (searchMatches.length === 0) {
+    searchDropdown.innerHTML = '<div class="pos-search-empty">No matching items</div>';
+  } else {
+    searchDropdown.innerHTML = searchMatches.map((it, i) => `
+      <div class="pos-search-row" onclick="pickSearchResult(${i})">
+        <div><div class="pos-search-row-name">${it.name}</div><div class="pos-search-row-code">${it.code}</div></div>
+        <div class="pos-search-row-price">Rs. ${it.price.toFixed(2)}</div>
+      </div>`).join('');
+  }
+  searchDropdown.classList.add('show');
+});
+function pickSearchResult(i) {
+  const it = searchMatches[i];
+  if (!it) return;
+  addToCart(it.id, it.code, it.name, it.price, it.stock, it.unit, 1);
+  searchInput.value = '';
+  searchDropdown.classList.remove('show');
+}
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.pos-search-wrap')) searchDropdown.classList.remove('show');
+});
+
+// ---- Photo -> OCR -> code/qty matching ----
 const billImageInput = document.getElementById('billImage');
 const billPreview = document.getElementById('billPreview');
 const extractBtn = document.getElementById('extractBtn');
@@ -105,30 +257,101 @@ function extractText() {
     }
   }).then(({ data: { text } }) => {
     document.getElementById('scannedText').value = text.trim();
-    ocrProgress.textContent = 'Done -- check the text on the left against the paper bill.';
+    ocrProgress.textContent = 'Done. Matching item codes...';
     extractBtn.disabled = false;
-
-    // Best-effort: if a line looks like "Total 1500" or "Rs. 1500", prefill
-    // the amount field. The shop keeper should always double-check this.
-    const match = text.match(/(?:total|amount|rs\.?)\s*[:\-]?\s*([0-9][0-9,]*\.?[0-9]*)/i);
-    if (match) {
-      const num = parseFloat(match[1].replace(/,/g, ''));
-      if (!isNaN(num) && num > 0 && !document.getElementById('totalAmount').value) {
-        document.getElementById('totalAmount').value = num;
-      }
-    }
+    rescanCodesFromText();
   }).catch(err => {
-    ocrProgress.textContent = 'Could not read the image (' + err + '). You can still type the text manually on the left.';
+    ocrProgress.textContent = 'Could not read the image (' + err + '). You can still type the text manually and match codes, or add items using the search box.';
     extractBtn.disabled = false;
   });
+}
+
+// Looks for lines that contain something shaped like an item code
+// (letters-dash-digits, e.g. VKAP-0001) plus a nearby quantity, and looks
+// each one up against real inventory via /scan/match. Anything not
+// recognized is listed so it can be added by hand instead.
+function rescanCodesFromText() {
+  const text = document.getElementById('scannedText').value;
+  const codeRegex = /\b([A-Za-z]{2,8}-\d{3,6})\b/;
+  const lines = text.split(/\r?\n/);
+  const candidates = [];
+  lines.forEach(line => {
+    const m = line.match(codeRegex);
+    if (!m) return;
+    const code = m[1].toUpperCase();
+    let qty = 1;
+    const qtyMatch = line.match(/(?:x|qty[:\s]*|quantity[:\s]*)\s*(\d+)/i);
+    if (qtyMatch) {
+      qty = parseInt(qtyMatch[1]) || 1;
+    } else {
+      const rest = line.slice(m.index + m[0].length);
+      const numMatch = rest.match(/\b(\d{1,4})\b/);
+      if (numMatch) qty = parseInt(numMatch[1]) || 1;
+    }
+    candidates.push({ code, qty });
+  });
+
+  if (candidates.length === 0) {
+    document.getElementById('matchSummary').textContent = 'No item codes recognized in this text yet -- add items using the search box below, or fix the text and try again.';
+    return;
+  }
+
+  document.getElementById('matchSummary').textContent = 'Matching ' + candidates.length + ' code(s)...';
+  let matchedCount = 0, unmatchedCodes = [];
+  const lookups = candidates.map(c =>
+    fetch('{{ url_for("scan.match_code") }}?code=' + encodeURIComponent(c.code))
+      .then(r => r.json())
+      .then(data => {
+        if (data.found) {
+          addToCart(data.id, data.item_code, data.name, data.selling_price, data.stock_qty, data.unit, c.qty);
+          matchedCount++;
+        } else {
+          unmatchedCodes.push(c.code);
+        }
+      })
+  );
+  Promise.all(lookups).then(() => {
+    let msg = matchedCount + ' item(s) matched into the cart.';
+    if (unmatchedCodes.length) {
+      msg += ' Not found in inventory: ' + unmatchedCodes.join(', ') + ' -- add those manually if needed.';
+    }
+    document.getElementById('matchSummary').textContent = msg;
+  });
+}
+
+// ---- Excel upload ----
+function uploadExcel() {
+  const fileInput = document.getElementById('excelFile');
+  const file = fileInput.files[0];
+  const progress = document.getElementById('excelProgress');
+  if (!file) { progress.textContent = 'Choose a file first.'; return; }
+  progress.textContent = 'Reading file...';
+  const formData = new FormData();
+  formData.append('excel_file', file);
+  fetch('{{ url_for("scan.excel_preview") }}', { method: 'POST', body: formData })
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) { progress.textContent = data.error; return; }
+      data.matched.forEach(it => addToCart(it.id, it.code, it.name, it.price, it.stock, it.unit, it.qty));
+      let msg = data.matched.length + ' item(s) matched into the cart.';
+      if (data.unmatched.length) msg += ' Not found: ' + data.unmatched.join(', ') + '.';
+      progress.textContent = msg;
+      const existingNote = document.getElementById('scannedText').value;
+      document.getElementById('scannedText').value = (existingNote ? existingNote + '\n' : '') + 'Uploaded from spreadsheet: ' + file.name;
+    })
+    .catch(err => { progress.textContent = 'Could not read that file: ' + err; });
 }
 
 function setScanPaymentMode(mode) {
   document.getElementById('scanPaymentMode').value = mode;
-  document.querySelectorAll('#scanForm .pos-pay-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.mode === mode);
-  });
+  document.querySelectorAll('#scanForm .pos-pay-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.mode === mode));
   document.getElementById('scanPaidWrap').style.display = (mode === 'credit') ? 'block' : 'none';
 }
+
+document.getElementById('scanForm').addEventListener('submit', function() {
+  document.getElementById('scannedTextHidden').value = document.getElementById('scannedText').value;
+});
+
+renderCart();
 </script>
 {% endblock %}

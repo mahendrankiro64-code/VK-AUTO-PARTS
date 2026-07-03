@@ -21,6 +21,7 @@ import quotations_bp
 import accounts_bp
 import settings_bp
 import scan_bp
+import pwa_bp
 import themes
 from db import get_setting
 
@@ -54,6 +55,7 @@ def create_app():
     app.register_blueprint(accounts_bp.bp)
     app.register_blueprint(settings_bp.bp)
     app.register_blueprint(scan_bp.bp)
+    app.register_blueprint(pwa_bp.bp)
 
     app.jinja_env.filters["money"] = fmt_money
     app.jinja_env.globals["has_permission"] = auth.has_permission

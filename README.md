@@ -57,12 +57,29 @@ both problems for free.
 - **Payment Receipts**: recording a payment against a credit customer's balance now generates a
   printable receipt (with an auto-generated receipt number) immediately — reprint any past
   payment's receipt any time from that customer's Payment History.
-- **Scan a Manual Bill**: for the times a bill was written by hand instead of through the software.
-  Go to "Scan Bill," take a photo of the paper bill, and the text is read right there on your
-  phone/computer (no photo is ever uploaded or stored — only the text you confirm). Pick a customer,
-  type the total, choose Cash/Online/Credit, and it's saved as a real invoice alongside your POS
-  sales. Because it's free-form text rather than matched inventory items, it does not deduct stock
-  automatically — use New Sale (POS) instead when you need stock deducted too.
+- **Scan a Manual Bill (or upload an Excel bill)**: for the times a bill was written by hand instead
+  of through the software, or during a power cut. Go to "Scan Bill" and either (a) take a photo of the
+  paper bill — the text is read right there on your phone/computer using on-device OCR, no photo is
+  ever uploaded or stored, or (b) upload an Excel/CSV file listing `item_code` and `qty` (a starter
+  template is downloadable from the same page) — the file itself is read in memory only and is never
+  saved. Either way, VK Auto Parts automatically matches the item codes it finds against your real
+  inventory, shows you a review cart to fix or add anything it missed (using the same instant item
+  search as POS), and once you pick a customer and Cash/Online/Credit and confirm, it creates a real
+  system-generated invoice with real line items — **stock is deducted automatically**, exactly like a
+  normal POS sale. The original scanned/typed text is kept on the invoice as a reference note, and
+  cancelling a scanned invoice restores its stock just like any other invoice.
+- **Installable phone/desktop app (PWA)**: VK Auto Parts can be "installed" straight from the browser
+  — no app store, no separate download, completely free. On an Android phone, open the site in
+  Chrome, tap the menu (⋮), then **"Install app"** (or Chrome may show an "Add VK Auto Parts to Home
+  screen" banner on its own). On an iPhone, open the site in Safari, tap the Share icon, then **"Add
+  to Home Screen."** On a laptop, Chrome/Edge show an install icon (⊕) in the address bar. After that
+  it has its own icon and opens full-screen like a normal app, from any device, any time, with no
+  browser address bar. This is a **Progressive Web App**, not a listing in the Google Play Store or
+  Apple App Store — that would require a paid developer account ($25 one-time for Google, $99/year
+  for Apple) and a separate native app build, which is a much bigger, ongoing-cost undertaking outside
+  what this project covers. Note this app always needs an internet connection to load real stock and
+  invoice data (it does not work fully offline) — only the app icon/shell installs locally, not the
+  shop's live data.
 
 ## Applying this update to your existing deployment
 
