@@ -123,7 +123,7 @@
   </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.0/tesseract.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
 <script>
 let cart = {}; // item_id -> {code, name, price, qty, stock, unit}
 const ITEMS_ALL = [
@@ -243,27 +243,91 @@ billImageInput.addEventListener('change', function() {
   extractBtn.disabled = false;
 });
 
+// Some phones (iPhones especially) hand over HEIC photos, very large
+// (4000px+) camera images, or images with an EXIF rotation flag that the
+// OCR engine reads sideways -- all of which can make text recognition come
+// back empty or never finish. Re-drawing the photo onto a canvas and
+// re-exporting it as a normal, reasonably-sized JPEG fixes all three at
+// once, using only the browser's own built-in image decoder (nothing is
+// uploaded anywhere to do this).
+function normalizeImageForOcr(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX_DIM = 1800;
+      let { width, height } = img;
+      if (width > MAX_DIM || height > MAX_DIM) {
+        const scale = MAX_DIM / Math.max(width, height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      canvas.toBlob((blob) => {
+        URL.revokeObjectURL(img.src);
+        if (blob) resolve(blob);
+        else reject(new Error('Could not process that image on this device.'));
+      }, 'image/jpeg', 0.9);
+    };
+    img.onerror = () => reject(new Error('This photo format could not be opened by your browser. Try a normal JPEG/PNG photo instead.'));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
 function extractText() {
   if (!selectedFile) return;
   extractBtn.disabled = true;
   ocrProgress.style.display = 'block';
-  ocrProgress.textContent = 'Reading text from the photo... this can take 10-20 seconds.';
+  ocrProgress.textContent = 'Preparing photo...';
 
-  Tesseract.recognize(selectedFile, 'eng', {
-    logger: m => {
-      if (m.status === 'recognizing text') {
-        ocrProgress.textContent = 'Reading text... ' + Math.round(m.progress * 100) + '%';
+  let stalled = false;
+  const stallTimer = setTimeout(() => {
+    stalled = true;
+    ocrProgress.textContent = 'Still working -- the OCR engine downloads a small language file the ' +
+      'first time it runs, which can take up to a minute on a slow connection. If this doesn\'t finish ' +
+      'in another minute or two, check your internet connection and try again, or just type the bill\'s ' +
+      'text in the box below by hand.';
+  }, 20000);
+
+  const STAGE_LABELS = {
+    'loading tesseract core': 'Loading OCR engine...',
+    'initializing tesseract': 'Starting OCR engine...',
+    'loading language traineddata': 'Downloading language data (first scan only, needs internet)...',
+    'initializing api': 'Almost ready...',
+    'recognizing text': 'Reading text...',
+  };
+
+  normalizeImageForOcr(selectedFile)
+    .then((normalized) => Tesseract.recognize(normalized, 'eng', {
+      logger: m => {
+        console.log('[Scan OCR]', m.status, m.progress);
+        if (stalled) return; // leave the stall message up once it has shown
+        const label = STAGE_LABELS[m.status] || m.status;
+        const pct = typeof m.progress === 'number' ? ' ' + Math.round(m.progress * 100) + '%' : '';
+        ocrProgress.textContent = label + pct;
+      },
+    }))
+    .then(({ data: { text } }) => {
+      clearTimeout(stallTimer);
+      extractBtn.disabled = false;
+      if (!text || !text.trim()) {
+        ocrProgress.textContent = 'No readable text was found in that photo. Try better lighting, holding the ' +
+          'phone steady and closer to the bill, or type the text in manually below.';
+        return;
       }
-    }
-  }).then(({ data: { text } }) => {
-    document.getElementById('scannedText').value = text.trim();
-    ocrProgress.textContent = 'Done. Matching item codes...';
-    extractBtn.disabled = false;
-    rescanCodesFromText();
-  }).catch(err => {
-    ocrProgress.textContent = 'Could not read the image (' + err + '). You can still type the text manually and match codes, or add items using the search box.';
-    extractBtn.disabled = false;
-  });
+      document.getElementById('scannedText').value = text.trim();
+      ocrProgress.textContent = 'Done. Matching item codes...';
+      rescanCodesFromText();
+    })
+    .catch(err => {
+      clearTimeout(stallTimer);
+      console.error('[Scan OCR] failed', err);
+      ocrProgress.textContent = 'Could not read the image (' + (err && err.message ? err.message : err) +
+        '). You can still type the text manually and click "Re-scan Codes", or add items using the search box below.';
+      extractBtn.disabled = false;
+    });
 }
 
 // Looks for lines that contain something shaped like an item code
