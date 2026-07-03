@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit Item' if item else 'Add Item' }}{% endblock %}
+{% block content %}
+<h4 class="mb-3">{{ 'Edit Item' if item else 'Add New Item' }}</h4>
+<div class="card p-4" style="max-width:700px;">
+  {% if item %}
+  <p class="text-muted">Item Code: <strong>{{ item.item_code }}</strong> (auto-generated, not editable)</p>
+  {% else %}
+  <p class="text-muted">Item code will be auto-generated (e.g. VKAP-0001).</p>
+  {% endif %}
+  <form method="post">
+    <div class="row g-3">
+      <div class="col-md-8">
+        <label class="form-label">Item Name *</label>
+        <input type="text" name="name" class="form-control" required value="{{ item.name if item else '' }}">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Category</label>
+        <select name="category_id" class="form-select">
+          <option value="">-- none --</option>
+          {% for c in categories %}
+            <option value="{{ c.id }}" {% if item and item.category_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Brand</label>
+        <input type="text" name="brand" class="form-control" value="{{ item.brand if item else '' }}">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Unit</label>
+        <input type="text" name="unit" class="form-control" value="{{ item.unit if item else 'pcs' }}">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Reorder Level</label>
+        <input type="number" step="0.01" name="reorder_level" class="form-control" value="{{ item.reorder_level if item else 5 }}">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Cost Price</label>
+        <input type="number" step="0.01" name="cost_price" class="form-control" value="{{ item.cost_price if item else 0 }}">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Selling Price</label>
+        <input type="number" step="0.01" name="selling_price" class="form-control" value="{{ item.selling_price if item else 0 }}">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Opening Stock Qty</label>
+        <input type="number" step="0.01" name="stock_qty" class="form-control" value="{{ item.stock_qty if item else 0 }}" {% if item %}readonly{% endif %}>
+        {% if item %}<small class="text-muted">Use Purchase Entry to add more stock.</small>{% endif %}
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary mt-3">Save Item</button>
+    <a href="{{ url_for('items.list_items') }}" class="btn btn-outline-secondary mt-3">Cancel</a>
+  </form>
+</div>
+{% endblock %}

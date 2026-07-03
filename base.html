@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Categories{% endblock %}
+{% block content %}
+<h4 class="mb-3">Item Categories</h4>
+<div class="row">
+  <div class="col-md-5">
+    <div class="card p-3">
+      <h6>Add Category</h6>
+      <form method="post">
+        <div class="mb-2">
+          <input type="text" name="name" class="form-control" placeholder="Category name" required>
+        </div>
+        <div class="mb-2">
+          <input type="text" name="prefix" class="form-control" placeholder="Optional prefix e.g. BRK">
+        </div>
+        <button class="btn btn-primary">Add</button>
+      </form>
+    </div>
+  </div>
+  <div class="col-md-7">
+    <div class="card p-3">
+      <table class="table table-sm">
+        <thead><tr><th>Name</th><th>Prefix</th></tr></thead>
+        <tbody>
+        {% for c in categories %}
+          <tr><td>{{ c.name }}</td><td>{{ c.prefix or '-' }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Day-End History{% endblock %}
+{% block content %}
+<h4 class="mb-3">Day-End History</h4>
+<div class="card p-3">
+<table class="table table-hover table-sm">
+  <thead><tr><th>Date</th><th>Opening</th><th>Cash</th><th>Credit</th><th>Online</th><th>Expenses</th><th>Expected</th><th>Actual</th><th>Diff</th><th>Status</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr>
+      <td>{{ r.business_date }}</td>
+      <td>{{ r.opening_balance|money }}</td>
+      <td>{{ r.cash_sales|money }}</td>
+      <td>{{ r.credit_sales|money }}</td>
+      <td>{{ r.online_sales|money }}</td>
+      <td>{{ r.expenses|money }}</td>
+      <td>{{ r.closing_balance_expected|money }}</td>
+      <td>{{ r.closing_balance_actual|money if r.closing_balance_actual is not none else '-' }}</td>
+      <td class="{{ 'text-danger' if r.difference and r.difference != 0 else '' }}">{{ r.difference|money if r.difference is not none else '-' }}</td>
+      <td><span class="badge bg-{{ 'success' if r.status=='closed' else 'warning text-dark' }}">{{ r.status }}</span></td>
+    </tr>
+  {% else %}
+    <tr><td colspan="10" class="text-muted">No day-end records yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}New Purchase{% endblock %}
+{% block content %}
+<h4 class="mb-3">New Purchase Entry</h4>
+<div class="card p-4">
+  <form method="post" id="purchaseForm">
+    <div class="row g-3 mb-3">
+      <div class="col-md-4">
+        <label class="form-label">Supplier</label>
+        <select name="supplier_id" class="form-select">
+          <option value="">-- none / cash purchase --</option>
+          {% for s in suppliers %}
+            <option value="{{ s.id }}">{{ s.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Purchase Date</label>
+        <input type="date" name="purchase_date" class="form-control" value="{{ today }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Payment Status</label>
+        <select name="payment_status" class="form-select">
+          <option value="unpaid">Unpaid</option>
+          <option value="partial">Partially Paid</option>
+          <option value="paid">Paid in Full</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Amount Paid</label>
+        <input type="number" step="0.01" name="amount_paid" class="form-control" value="0">
+      </div>
+    </div>
+
+    <h6>Items Purchased</h6>
+    <table class="table" id="lineTable">
+      <thead><tr><th style="width:40%">Item</th><th>Qty</th><th>Cost Price</th><th>Line Total</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <button type="button" class="btn btn-outline-secondary btn-sm mb-3" onclick="addRow()"><i class="bi bi-plus"></i> Add Item Line</button>
+
+    <div class="mb-3">
+      <label class="form-label">Notes</label>
+      <input type="text" name="notes" class="form-control">
+    </div>
+
+    <h5>Total: Rs. <span id="grandTotal">0.00</span></h5>
+    <button type="submit" class="btn btn-primary">Save Purchase</button>
+    <a href="{{ url_for('purchases.list_purchases') }}" class="btn btn-outline-secondary">Cancel</a>
+  </form>
+</div>
+
+<script>
+const ITEMS = [
+  {% for it in items %}
+  {id: {{ it.id }}, name: {{ (it.item_code ~ ' - ' ~ it.name)|tojson }}, cost: {{ it.cost_price }}},
+  {% endfor %}
+];
+
+function itemOptions() {
+  let opts = '<option value="">-- select item --</option>';
+  ITEMS.forEach(it => { opts += `<option value="${it.id}" data-cost="${it.cost}">${it.name}</option>`; });
+  return opts;
+}
+
+function addRow() {
+  const tbody = document.querySelector('#lineTable tbody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><select name="item_id[]" class="form-select item-select" onchange="onItemChange(this)">${itemOptions()}</select></td>
+    <td><input type="number" step="0.01" name="qty[]" class="form-control qty-input" value="1" onInput="recalc()"></td>
+    <td><input type="number" step="0.01" name="cost_price[]" class="form-control cost-input" value="0" onInput="recalc()"></td>
+    <td class="line-total align-middle">0.00</td>
+    <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove(); recalc();">X</button></td>
+  `;
+  tbody.appendChild(tr);
+}
+
+function onItemChange(sel) {
+  const row = sel.closest('tr');
+  const opt = sel.selectedOptions[0];
+  const cost = opt ? (opt.dataset.cost || 0) : 0;
+  row.querySelector('.cost-input').value = cost;
+  recalc();
+}
+
+function recalc() {
+  let grand = 0;
+  document.querySelectorAll('#lineTable tbody tr').forEach(row => {
+    const qty = parseFloat(row.querySelector('.qty-input').value) || 0;
+    const cost = parseFloat(row.querySelector('.cost-input').value) || 0;
+    const total = qty * cost;
+    row.querySelector('.line-total').textContent = total.toFixed(2);
+    grand += total;
+  });
+  document.getElementById('grandTotal').textContent = grand.toFixed(2);
+}
+
+addRow();
+</script>
+{% endblock %}

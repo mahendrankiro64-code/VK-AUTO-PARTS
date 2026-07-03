@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Invoice {{ invoice.invoice_no }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between mb-3 no-print">
+  <h4>Invoice {{ invoice.invoice_no }}</h4>
+  <div>
+    <button class="btn btn-outline-primary" onclick="window.print()"><i class="bi bi-printer"></i> Print</button>
+    {% if invoice.status == 'completed' %}
+    <form method="post" action="{{ url_for('sales.cancel_invoice', invoice_id=invoice.id) }}" class="d-inline" onsubmit="return confirm('Cancel this invoice? Stock will be restored.');">
+      <button class="btn btn-outline-danger">Cancel Invoice</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card p-4" id="printArea">
+  <div class="d-flex justify-content-between">
+    <div>
+      <h3>VK Auto Parts</h3>
+      <p class="mb-0 text-muted">Auto Parts Dealer</p>
+    </div>
+    <div class="text-end">
+      <h5>Invoice: {{ invoice.invoice_no }}</h5>
+      <p class="mb-0">Date: {{ invoice.invoice_date }}</p>
+      <p class="mb-0">Status: <strong>{{ invoice.status }}</strong></p>
+    </div>
+  </div>
+  <hr>
+  <p><strong>Customer:</strong> {{ invoice.customer_name or 'Walk-in Customer' }}
+    {% if invoice.customer_phone %} — {{ invoice.customer_phone }}{% endif %}</p>
+
+  <table class="table">
+    <thead><tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr></thead>
+    <tbody>
+    {% for li in line_items %}
+      <tr><td>{{ li.item_name }}</td><td>{{ li.qty }}</td><td>{{ li.unit_price|money }}</td><td>{{ li.total|money }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="row justify-content-end">
+    <div class="col-md-4">
+      <table class="table table-sm">
+        <tr><td>Subtotal</td><td class="text-end">{{ invoice.subtotal|money }}</td></tr>
+        <tr><td>Discount</td><td class="text-end">-{{ invoice.discount|money }}</td></tr>
+        <tr><td>Tax</td><td class="text-end">+{{ invoice.tax|money }}</td></tr>
+        <tr><th>Grand Total</th><th class="text-end">{{ invoice.total_amount|money }}</th></tr>
+        <tr><td>Payment Mode</td><td class="text-end">{{ invoice.payment_mode }}</td></tr>
+        <tr><td>Amount Paid</td><td class="text-end">{{ invoice.amount_paid|money }}</td></tr>
+        <tr><td>Balance Due</td><td class="text-end">{{ invoice.balance|money }}</td></tr>
+      </table>
+    </div>
+  </div>
+  <p class="text-center text-muted mt-4">Thank you for your business!</p>
+</div>
+{% endblock %}
