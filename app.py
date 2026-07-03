@@ -1,32 +1,84 @@
-{% extends "base.html" %}
-{% block title %}Stock Report{% endblock %}
-{% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h4>Stock Report</h4>
-  <a href="{{ url_for('reports.stock_report', low_stock=1 if low_only else 0, export='xlsx') }}" class="btn btn-success"><i class="bi bi-file-earmark-excel"></i> Export Excel</a>
-</div>
-<form class="row g-2 mb-3" method="get">
-  <div class="col-auto form-check mt-2">
-    <input class="form-check-input" type="checkbox" name="low_stock" value="1" id="lowstock" {% if low_only %}checked{% endif %}>
-    <label class="form-check-label" for="lowstock">Low stock only</label>
-  </div>
-  <div class="col-auto"><button class="btn btn-outline-secondary">Filter</button></div>
-</form>
-<div class="card p-3 mb-3"><div class="text-muted small">Total Stock Value (at cost)</div><h4>{{ total_stock_value|money }}</h4></div>
-<div class="card p-3">
-<table class="table table-sm">
-  <thead><tr><th>Code</th><th>Name</th><th>Category</th><th>Brand</th><th>Cost</th><th>Price</th><th>Stock</th><th>Reorder</th><th>Stock Value</th></tr></thead>
-  <tbody>
-  {% for r in rows %}
-    <tr class="{{ 'table-danger' if r.stock_qty <= r.reorder_level else '' }}">
-      <td>{{ r.item_code }}</td><td>{{ r.name }}</td><td>{{ r.category_name or '-' }}</td><td>{{ r.brand or '-' }}</td>
-      <td>{{ r.cost_price|money }}</td><td>{{ r.selling_price|money }}</td><td>{{ r.stock_qty }} {{ r.unit }}</td>
-      <td>{{ r.reorder_level }}</td><td>{{ r.stock_value|money }}</td>
-    </tr>
-  {% else %}
-    <tr><td colspan="9" class="text-muted">No items.</td></tr>
-  {% endfor %}
-  </tbody>
-</table>
-</div>
-{% endblock %}
+import os
+import psycopg2
+from flask import Flask, g
+from werkzeug.security import generate_password_hash
+
+from db import init_db, is_fresh_database, DATABASE_URL
+from helpers import fmt_money, today_str
+
+import auth
+import dashboard_bp
+import items_bp
+import customers_bp
+import suppliers_bp
+import purchases_bp
+import sales_bp
+import dayend_bp
+import excel_io
+import reports_bp
+
+
+def create_app():
+    app = Flask(__name__)
+    app.config["SECRET_KEY"] = os.environ.get("VKAP_SECRET_KEY", "vk-auto-parts-dev-secret-change-me")
+    app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB upload cap
+
+    # init_db() runs CREATE TABLE IF NOT EXISTS, so it's safe on every boot.
+    init_db(app)
+
+    if is_fresh_database():
+        seed_defaults()
+
+    app.register_blueprint(auth.bp)
+    app.register_blueprint(dashboard_bp.bp)
+    app.register_blueprint(items_bp.bp)
+    app.register_blueprint(customers_bp.bp)
+    app.register_blueprint(suppliers_bp.bp)
+    app.register_blueprint(purchases_bp.bp)
+    app.register_blueprint(sales_bp.bp)
+    app.register_blueprint(dayend_bp.bp)
+    app.register_blueprint(excel_io.bp)
+    app.register_blueprint(reports_bp.bp)
+
+    app.jinja_env.filters["money"] = fmt_money
+
+    @app.context_processor
+    def inject_globals():
+        return {"current_user": getattr(g, "user", None), "today": today_str(), "biz_name": "VK Auto Parts"}
+
+    return app
+
+
+def seed_defaults():
+    """Create the first admin user and default categories. Only runs once,
+    the moment the database is empty (see is_fresh_database())."""
+    conn = psycopg2.connect(DATABASE_URL)
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO users (username, password_hash, full_name, role) VALUES (%s,%s,%s,%s)",
+        ("admin", generate_password_hash("admin123"), "Shop Owner", "admin"),
+    )
+    default_categories = [
+        ("Engine Parts", "ENG"), ("Brake Parts", "BRK"), ("Electrical", "ELE"),
+        ("Body Parts", "BDY"), ("Filters", "FLT"), ("Lubricants", "LUB"),
+        ("Suspension", "SUS"), ("Tyres & Wheels", "TYR"), ("Accessories", "ACC"),
+    ]
+    for name, prefix in default_categories:
+        cur.execute(
+            "INSERT INTO categories (name, prefix) VALUES (%s,%s) ON CONFLICT (name) DO NOTHING",
+            (name, prefix),
+        )
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
+app = create_app()
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    # Debug mode is OFF by default for safety (it exposes a code-execution
+    # debugger in the browser). Set VKAP_DEBUG=1 only on your own machine
+    # while developing, never on a public deployment.
+    debug = os.environ.get("VKAP_DEBUG", "0") == "1"
+    app.run(host="0.0.0.0", port=port, debug=debug)

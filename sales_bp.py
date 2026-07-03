@@ -94,12 +94,12 @@ def new_invoice():
         cur = db.execute(
             """INSERT INTO invoices (invoice_no, customer_id, invoice_date, business_date,
                subtotal, discount, tax, total_amount, payment_mode, amount_paid, balance,
-               created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+               created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id""",
             (invoice_no, customer_id, now_str(), biz_date, subtotal, discount, tax,
              total_amount, payment_mode, amount_paid, balance,
              g.user["id"] if g.user else None),
         )
-        invoice_id = cur.lastrowid
+        invoice_id = cur.fetchone()["id"]
 
         for item_row, qty_f, price_f, line_total in line_items:
             db.execute(

@@ -4,8 +4,13 @@ A complete inventory and invoicing web app built for VK Auto Parts: item managem
 auto-generated item codes, purchase entry, cash/credit/online sales invoicing, day-end cash
 reconciliation, customer credit ledgers, reports, and Excel/Google Sheets import & export.
 
-Built with Flask + SQLite (Python's built-in database) — no paid services required, and it
-can be hosted for free.
+Built with Flask + PostgreSQL — no paid software required, and it can be hosted for free using
+Supabase (free Postgres database) plus Render (free web hosting). This combination was chosen
+specifically so the app isn't tied to one host's local disk: Netlify and Firebase Hosting were
+considered too, but neither can run a persistent Python server with a database attached (Netlify
+only serves static pages + short-lived functions; Firebase's Cloud Run option requires a Google
+Cloud billing account and doesn't keep local files between requests). Postgres + Render sidesteps
+both problems for free.
 
 ## What's included
 
@@ -25,60 +30,91 @@ can be hosted for free.
   download ready-made templates from the Excel page in the app.
 - **Users**: admin and cashier roles; admins manage staff logins.
 
-## Running it locally (fastest way to try it)
+## Step 1 — Create your free database (Supabase)
 
-Requirements: Python 3.9+
+1. Go to https://supabase.com and sign up for a free account (no credit card required).
+2. Click **New Project**. Pick any name/region, and set a database password — write this down,
+   you'll need it in the connection string.
+3. Once the project is ready, click the **Connect** button near the top of the project page.
+4. You'll see several connection string options. Copy the one labeled **Session pooler** (not
+   "Direct connection") — it looks like:
+   ```
+   postgresql://postgres.xxxxxxxxxxxx:[YOUR-PASSWORD]@aws-0-xx-xxxx-1.pooler.supabase.com:5432/postgres
+   ```
+   The session pooler is the one to use here because free hosts like Render only give your app an
+   IPv4 address, and Supabase's direct connection requires IPv6 (or a paid IPv4 add-on) — the
+   pooler works over IPv4 with no extra cost.
+5. Replace `[YOUR-PASSWORD]` in that string with the database password you set in step 2. This
+   full string is your `DATABASE_URL` — you'll paste it into Render in Step 2 below.
+
+One thing worth knowing: **a free Supabase project pauses itself after 7 days with no database
+activity** (a dashboard button un-pauses it in seconds, no data is lost). For a shop that's used
+most days this is a non-issue. If you close for a longer stretch, just open the Supabase dashboard
+before you reopen — or set up a free uptime monitor (e.g. UptimeRobot) to ping your site every so
+often, which keeps both Render and Supabase awake.
+
+## Step 2 — Put the code on GitHub
+
+Render deploys from a Git repository, so the code needs to live on GitHub (also free):
+
+1. Create a new repository at https://github.com/new (can be private).
+2. Upload this project's files to it — either drag-and-drop the extracted folder contents on the
+   GitHub web page ("uploading an existing file"), or if you're comfortable with git:
+   ```bash
+   cd vk_auto_parts
+   git init
+   git add .
+   git commit -m "VK Auto Parts inventory & invoicing system"
+   git remote add origin https://github.com/YOURUSERNAME/vk-auto-parts.git
+   git push -u origin main
+   ```
+
+## Step 3 — Deploy for free on Render
+
+1. Go to https://render.com and sign up for free (no credit card required for the free tier).
+2. Connect your GitHub account, then click **New +** → **Web Service**, and pick the repo you
+   just created.
+3. Fill in:
+   - **Build Command:** `pip install -r requirements.txt`
+   - **Start Command:** `gunicorn app:app`
+   - **Instance Type:** Free
+4. Under **Environment Variables**, add:
+   - `DATABASE_URL` — the Supabase connection string from Step 1
+   - `VKAP_SECRET_KEY` — any long random string (e.g. generate one with
+     `python3 -c "import secrets; print(secrets.token_hex(32))"`)
+5. Click **Create Web Service**. Render will install everything and start the app — the first
+   deploy takes a few minutes. Once it's live, your shop system is reachable at the
+   `https://your-app-name.onrender.com` URL Render shows you.
+6. Log in with `admin` / `admin123` and change that password immediately (Users page).
+
+Render's free web services go to sleep after 15 minutes with no visitors and take 30-60 seconds
+to wake back up on the next visit — completely normal for a free tier, and once it's open in a
+browser tab during the day it stays responsive.
+
+To update the app later: push new commits to GitHub (`git push`) and Render redeploys automatically.
+
+### Trying it locally before you deploy
+
+You can run the exact same app on your own computer first, pointed at the same free Supabase
+database (or a separate one for testing):
 
 ```bash
 cd vk_auto_parts
 pip install -r requirements.txt
+export DATABASE_URL="postgresql://...your Supabase connection string..."
+export VKAP_SECRET_KEY="any-random-string-for-local-testing"
 python app.py
 ```
 
-Open http://localhost:5000 in your browser.
+Open http://localhost:5000. First run automatically creates all the tables and the default
+`admin` / `admin123` login.
 
-**Default login:** username `admin`, password `admin123` — change this immediately from the
-Users page (top menu → More → Users) or create a new admin user and disable this one.
+### Alternative host: Fly.io
 
-The database is a single file at `instance/vkap.db`. Back it up regularly (just copy that file).
-
-## Deploying for free so you can use it from anywhere (PythonAnywhere)
-
-Render and Railway's free tiers wipe your database file every time the app restarts, which
-would erase your sales history — not acceptable for real bookkeeping. **PythonAnywhere's free
-tier gives you persistent storage** (your `vkap.db` file survives restarts), so that's what
-these instructions use.
-
-1. Create a free account at https://www.pythonanywhere.com (choose the "Beginner" plan — it's free).
-2. Open a **Bash console** from the PythonAnywhere dashboard and upload this project, e.g.:
-   ```bash
-   git clone <your-repo-url> vk_auto_parts   # or upload the zip via the Files tab and unzip it
-   cd vk_auto_parts
-   pip install --user -r requirements.txt
-   ```
-3. Go to the **Web** tab → **Add a new web app** → choose **Flask** → pick a recent Python version.
-4. When asked for the Flask app's path, point it at `/home/<your-username>/vk_auto_parts/app.py`.
-5. Open the generated WSGI configuration file (linked at the top of the Web tab) and make sure it
-   imports the app object, e.g.:
-   ```python
-   import sys
-   path = '/home/<your-username>/vk_auto_parts'
-   if path not in sys.path:
-       sys.path.append(path)
-   from app import app as application
-   ```
-6. Set the **Working directory** to `/home/<your-username>/vk_auto_parts`.
-7. Click the green **Reload** button on the Web tab. Your shop system is now live at
-   `https://<your-username>.pythonanywhere.com`, reachable from any phone or computer.
-8. Log in with `admin` / `admin123` and change the password right away.
-
-To update the app later, just re-upload changed files (or `git pull`) and hit **Reload** again.
-
-### Alternative: Render / Railway (if you don't mind paying a small amount for a persistent disk)
-
-Both support Flask out of the box. On their free tiers the filesystem resets on every deploy or
-restart, so you'd lose all your data — only use these if you add a paid "persistent disk" add-on,
-or switch `VKAP_DB_PATH` (see below) to an external database instead of SQLite.
+Fly.io's free allowance also works well and follows the same idea — connect it to the same
+Supabase `DATABASE_URL` and `VKAP_SECRET_KEY` environment variables, and it will run this app
+with no code changes. Render was used above simply because it needs no command-line tool and no
+credit card to get started.
 
 ## Excel & Google Sheets
 
@@ -114,8 +150,9 @@ OAuth application, which is a lot of overhead for a small shop. Instead:
   different prefix.
 - **Categories**: nine automotive categories are seeded on first run (Engine Parts, Brake Parts,
   Electrical, etc.) — add/edit these from Inventory → Categories.
-- **Database location**: set the `VKAP_DB_PATH` environment variable to change where the SQLite
-  file lives (useful for backups or migrating hosts).
+- **Database**: everything lives in the Postgres database pointed to by `DATABASE_URL`. To move
+  to a different Postgres provider later (Render's own Postgres, Neon, Fly Postgres, etc.), just
+  change that one environment variable — no code changes needed.
 
 ## Security notes before going live
 
@@ -130,7 +167,7 @@ OAuth application, which is a lot of overhead for a small shop. Instead:
 ```
 vk_auto_parts/
 ├── app.py                 # App entrypoint, blueprint registration, seed data
-├── db.py                  # SQLite connection helper + auto-sequence codes
+├── db.py                  # Postgres (psycopg2) connection helper + auto-sequence codes
 ├── auth.py                # Login/session auth, user management
 ├── helpers.py              # Shared helpers (money formatting, day-end math)
 ├── dashboard_bp.py         # Dashboard
@@ -142,8 +179,22 @@ vk_auto_parts/
 ├── dayend_bp.py             # Day-end closing
 ├── reports_bp.py            # Reports + Excel export
 ├── excel_io.py               # Excel/Google Sheets import + templates
-├── schema.sql                 # Database schema
+├── schema.sql                 # Database schema (PostgreSQL dialect)
 ├── templates/                  # HTML templates (Bootstrap 5)
 ├── static/                      # CSS
+├── Procfile                      # web: gunicorn app:app (used by Render/Fly/Heroku-style hosts)
 └── requirements.txt
 ```
+
+## A note on how this was tested
+
+This sandbox environment's network is locked down to a small allowlist and can't reach PyPI,
+apt's package mirrors, or Supabase directly, so I couldn't install the real `psycopg2` driver or
+spin up a live Postgres server to test against here. Instead I built a drop-in stand-in for
+psycopg2 (backed by SQLite, translating the same SQL calls) and ran the full test suite — login,
+add items, purchase entry, a credit sale, invoice view/cancel, day-end open/close, Excel
+import/export — against that. Every one of those passed. This gives strong confidence in the
+Python-side logic (query wiring, the new `RETURNING id` handling, placeholder translation), but
+it isn't a substitute for hitting your real Supabase database once. After you deploy, please run
+through: log in, add one item, make one test sale, and check the dashboard updates — if anything
+looks off, send me the error and I'll fix it fast.

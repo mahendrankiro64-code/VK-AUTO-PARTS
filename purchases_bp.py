@@ -55,11 +55,11 @@ def add_purchase():
         cur = db.execute(
             """INSERT INTO purchases (purchase_no, supplier_id, purchase_date, total_amount,
                payment_status, amount_paid, notes, created_by)
-               VALUES (?,?,?,?,?,?,?,?)""",
+               VALUES (?,?,?,?,?,?,?,?) RETURNING id""",
             (purchase_no, supplier_id, purchase_date, total_amount, payment_status,
              amount_paid, notes, g.user["id"] if g.user else None),
         )
-        purchase_id = cur.lastrowid
+        purchase_id = cur.fetchone()["id"]
 
         for item_id, qty_f, cost_f, total in line_items:
             db.execute(

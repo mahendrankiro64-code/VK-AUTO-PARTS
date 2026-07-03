@@ -1,0 +1,8 @@
+body { background-color: #f4f6f9; }
+.card { border: none; box-shadow: 0 1px 3px rgba(0,0,0,.08); border-radius: .6rem; }
+.stat-card h2 { font-weight: 700; }
+.table thead th { background-color: #eef1f5; }
+@media print {
+  .no-print { display: none !important; }
+  body { background: #fff; }
+}

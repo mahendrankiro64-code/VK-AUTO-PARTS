@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+{% block content %}
+<h4 class="mb-3">Reports</h4>
+<div class="row g-3">
+  <div class="col-md-4">
+    <div class="card p-3">
+      <h5><i class="bi bi-receipt"></i> Sales Report</h5>
+      <p class="text-muted">Daily/monthly sales by payment mode.</p>
+      <a href="{{ url_for('reports.sales_report', **{'from': today, 'to': today}) }}" class="btn btn-outline-primary">View Today</a>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card p-3">
+      <h5><i class="bi bi-box-seam"></i> Stock Report</h5>
+      <p class="text-muted">Current stock levels and stock value.</p>
+      <a href="{{ url_for('reports.stock_report') }}" class="btn btn-outline-primary">View</a>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card p-3">
+      <h5><i class="bi bi-truck"></i> Purchases Report</h5>
+      <p class="text-muted">Purchase entries by date range.</p>
+      <a href="{{ url_for('reports.purchases_report', **{'from': today, 'to': today}) }}" class="btn btn-outline-primary">View Today</a>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card p-3">
+      <h5><i class="bi bi-people"></i> Customer Ledger</h5>
+      <p class="text-muted">Credit balances owed by customers.</p>
+      <a href="{{ url_for('reports.customer_ledger') }}" class="btn btn-outline-primary">View</a>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card p-3">
+      <h5><i class="bi bi-calendar-check"></i> Day-End History</h5>
+      <p class="text-muted">Opening/closing balances by day.</p>
+      <a href="{{ url_for('reports.dayend_history_report') }}" class="btn btn-outline-primary">View</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

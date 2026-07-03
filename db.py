@@ -1,43 +1,91 @@
 """Database helper module for VK Auto Parts system.
 
-Uses plain sqlite3 (no ORM) so the app has zero external dependencies
-beyond Flask + pandas/openpyxl (for Excel import/export). This keeps
-deployment on free hosts (PythonAnywhere, etc.) simple.
+Backed by PostgreSQL (Supabase, Render Postgres, Fly Postgres, Neon, etc.)
+via psycopg2, instead of the local-file SQLite used in the first version of
+this app. This lets the app run on hosts that don't offer persistent local
+disk storage (e.g. Netlify Functions, Cloud Run) as long as they can reach an
+external Postgres database over the network.
+
+A thin wrapper class keeps the rest of the codebase (every blueprint) using
+the same sqlite3-style calling convention it was written with:
+    db.execute(sql, params).fetchone() / .fetchall()
+    db.commit()
+even though the underlying driver is psycopg2. It also transparently
+translates the SQLite-style '?' placeholders used throughout the app into
+psycopg2's '%s' placeholders, so the blueprint files did not need to change.
 """
 import os
-import sqlite3
-from flask import g, current_app
+import psycopg2
+import psycopg2.extras
+from flask import g
 
-DB_PATH = os.environ.get(
-    "VKAP_DB_PATH",
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "instance", "vkap.db"),
-)
+DATABASE_URL = os.environ.get("DATABASE_URL")
+
+
+class DBWrapper:
+    """Minimal sqlite3-connection-like shim around a psycopg2 connection."""
+
+    def __init__(self, conn):
+        self.conn = conn
+
+    def execute(self, sql, params=()):
+        cur = self.conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(sql.replace("?", "%s"), tuple(params))
+        return cur
+
+    def commit(self):
+        self.conn.commit()
+
+    def close(self):
+        self.conn.close()
+
+
+def _connect():
+    if not DATABASE_URL:
+        raise RuntimeError(
+            "DATABASE_URL environment variable is not set. Set it to your "
+            "Postgres connection string (e.g. from Supabase: Project Settings "
+            "-> Database -> Connection string -> URI)."
+        )
+    conn = psycopg2.connect(DATABASE_URL)
+    conn.autocommit = False
+    return conn
 
 
 def get_db():
     if "db" not in g:
-        os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-        g.db = sqlite3.connect(DB_PATH)
-        g.db.row_factory = sqlite3.Row
-        g.db.execute("PRAGMA foreign_keys = ON")
+        g.db = DBWrapper(_connect())
     return g.db
 
 
 def close_db(e=None):
-    db = g.pop("db", None)
-    if db is not None:
-        db.close()
+    wrapper = g.pop("db", None)
+    if wrapper is not None:
+        wrapper.close()
 
 
 def init_db(app):
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    """Create tables if they don't exist yet. Safe to call on every boot."""
     schema_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "schema.sql")
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
+    cur = conn.cursor()
     with open(schema_path, "r") as f:
-        conn.executescript(f.read())
+        cur.execute(f.read())
     conn.commit()
+    cur.close()
     conn.close()
     app.teardown_appcontext(close_db)
+
+
+def is_fresh_database():
+    """True if this looks like a brand-new database (no users yet)."""
+    conn = _connect()
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM users")
+    count = cur.fetchone()[0]
+    cur.close()
+    conn.close()
+    return count == 0
 
 
 def get_setting(db, key, default=None):
@@ -48,7 +96,7 @@ def get_setting(db, key, default=None):
 def set_setting(db, key, value):
     db.execute(
         "INSERT INTO settings (key, value) VALUES (?, ?) "
-        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        "ON CONFLICT (key) DO UPDATE SET value = excluded.value",
         (key, str(value)),
     )
     db.commit()

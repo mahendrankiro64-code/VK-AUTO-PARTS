@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, g
 from db import get_db
 from auth import login_required
-from helpers import today_str, get_or_create_open_dayend, recompute_dayend_totals
+from helpers import today_str, now_str, get_or_create_open_dayend, recompute_dayend_totals
 
 bp = Blueprint("dayend", __name__, url_prefix="/dayend")
 
@@ -40,9 +40,10 @@ def today():
             diff = actual - de2["closing_balance_expected"]
             db.execute(
                 """UPDATE day_end SET closing_balance_actual=?, difference=?, notes=?,
-                   status='closed', closed_by=?, closed_at=datetime('now')
+                   status='closed', closed_by=?, closed_at=?
                    WHERE business_date=?""",
-                (actual, diff, notes, g.user["id"] if g.user else None, de["business_date"]),
+                (actual, diff, notes, g.user["id"] if g.user else None, now_str(),
+                 de["business_date"]),
             )
             db.commit()
             flash("Day closed successfully.", "success")

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Excel / Google Sheets Import & Export{% endblock %}
+{% block content %}
+<h4 class="mb-3">Excel / Google Sheets Import & Export</h4>
+<p class="text-muted">
+  Google Sheets tip: this app doesn't connect live to Google's servers (that needs a Google
+  Cloud API setup, which is a lot of overhead for a small shop). Instead, in Google Sheets go to
+  <strong>File &rarr; Download &rarr; Microsoft Excel (.xlsx)</strong> and upload that file below.
+  For exports, download the .xlsx from any Report page, then in Google Sheets use
+  <strong>File &rarr; Import &rarr; Upload</strong> to bring it in.
+</p>
+
+<div class="row g-3">
+  <div class="col-md-4">
+    <div class="card p-3">
+      <h5>Import Items</h5>
+      <p class="text-muted small">Bulk upload new inventory items. Item codes are auto-generated.</p>
+      <a href="{{ url_for('excel.download_template', kind='items') }}" class="btn btn-sm btn-outline-secondary mb-2">Download Template</a>
+      <form method="post" action="{{ url_for('excel.import_items') }}" enctype="multipart/form-data">
+        <input type="file" name="file" class="form-control mb-2" accept=".xlsx,.xls,.csv" required>
+        <button class="btn btn-primary w-100">Upload & Import</button>
+      </form>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card p-3">
+      <h5>Import Customers</h5>
+      <p class="text-muted small">Bulk upload your existing customer list.</p>
+      <a href="{{ url_for('excel.download_template', kind='customers') }}" class="btn btn-sm btn-outline-secondary mb-2">Download Template</a>
+      <form method="post" action="{{ url_for('excel.import_customers') }}" enctype="multipart/form-data">
+        <input type="file" name="file" class="form-control mb-2" accept=".xlsx,.xls,.csv" required>
+        <button class="btn btn-primary w-100">Upload & Import</button>
+      </form>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card p-3">
+      <h5>Import Purchase Entries</h5>
+      <p class="text-muted small">Bulk upload purchases. Rows with the same supplier + date become one purchase entry.</p>
+      <a href="{{ url_for('excel.download_template', kind='purchases') }}" class="btn btn-sm btn-outline-secondary mb-2">Download Template</a>
+      <form method="post" action="{{ url_for('excel.import_purchases') }}" enctype="multipart/form-data">
+        <input type="file" name="file" class="form-control mb-2" accept=".xlsx,.xls,.csv" required>
+        <button class="btn btn-primary w-100">Upload & Import</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="card p-3 mt-3">
+  <h5>Export Reports to Excel</h5>
+  <p class="text-muted small">Go to <a href="{{ url_for('reports.index') }}">Reports</a> and click "Export Excel" on any report page.</p>
+</div>
+{% endblock %}

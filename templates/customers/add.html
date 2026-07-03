@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit Customer' if customer else 'Add Customer' }}{% endblock %}
+{% block content %}
+<h4 class="mb-3">{{ 'Edit Customer' if customer else 'Add New Customer' }}</h4>
+<div class="card p-4" style="max-width:600px;">
+  <form method="post">
+    <div class="mb-3">
+      <label class="form-label">Name *</label>
+      <input type="text" name="name" class="form-control" required value="{{ customer.name if customer else '' }}">
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Phone</label>
+      <input type="text" name="phone" class="form-control" value="{{ customer.phone if customer else '' }}">
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Address</label>
+      <textarea name="address" class="form-control">{{ customer.address if customer else '' }}</textarea>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Customer Type</label>
+      <select name="customer_type" class="form-select">
+        <option value="walkin" {% if customer and customer.customer_type=='walkin' %}selected{% endif %}>Walk-in</option>
+        <option value="credit" {% if customer and customer.customer_type=='credit' %}selected{% endif %}>Credit Customer</option>
+      </select>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Credit Limit</label>
+      <input type="number" step="0.01" name="credit_limit" class="form-control" value="{{ customer.credit_limit if customer else 0 }}">
+    </div>
+    <button class="btn btn-primary">Save Customer</button>
+    <a href="{{ url_for('customers.list_customers') }}" class="btn btn-outline-secondary">Cancel</a>
+  </form>
+</div>
+{% endblock %}

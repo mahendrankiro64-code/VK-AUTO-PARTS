@@ -91,8 +91,8 @@ def import_items():
             if cat:
                 category_id = cat["id"]
             else:
-                cur = db.execute("INSERT INTO categories (name) VALUES (?)", (category_name,))
-                category_id = cur.lastrowid
+                cur = db.execute("INSERT INTO categories (name) VALUES (?) RETURNING id", (category_name,))
+                category_id = cur.fetchone()["id"]
 
         item_code = next_sequence_code(db, "item_seq", "VKAP", pad=4)
         db.execute(
@@ -181,10 +181,10 @@ def import_purchases():
             else:
                 scode = next_sequence_code(db, "supplier_seq", "SUP", pad=4)
                 cur = db.execute(
-                    "INSERT INTO suppliers (supplier_code, name) VALUES (?,?)",
+                    "INSERT INTO suppliers (supplier_code, name) VALUES (?,?) RETURNING id",
                     (scode, supplier_name_clean),
                 )
-                supplier_id = cur.lastrowid
+                supplier_id = cur.fetchone()["id"]
 
         try:
             pdate = pd.to_datetime(purchase_date).strftime("%Y-%m-%d")
@@ -216,11 +216,11 @@ def import_purchases():
         purchase_no = next_sequence_code(db, "purchase_seq", "PUR", pad=5)
         cur = db.execute(
             """INSERT INTO purchases (purchase_no, supplier_id, purchase_date, total_amount,
-               payment_status, created_by, notes) VALUES (?,?,?,?,?,?,?)""",
+               payment_status, created_by, notes) VALUES (?,?,?,?,?,?,?) RETURNING id""",
             (purchase_no, supplier_id, pdate, total_amount, "unpaid",
              g.user["id"] if g.user else None, "Imported from spreadsheet"),
         )
-        purchase_id = cur.lastrowid
+        purchase_id = cur.fetchone()["id"]
         for item_id, qty, cost, total in line_items:
             db.execute(
                 """INSERT INTO purchase_items (purchase_id, item_id, qty, cost_price, total)

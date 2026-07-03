@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Purchase {{ purchase.purchase_no }}{% endblock %}
+{% block content %}
+<h4 class="mb-3">Purchase {{ purchase.purchase_no }}</h4>
+<div class="card p-4">
+  <p><strong>Supplier:</strong> {{ purchase.supplier_name or '-' }} &nbsp; <strong>Date:</strong> {{ purchase.purchase_date }}</p>
+  <table class="table">
+    <thead><tr><th>Code</th><th>Item</th><th>Qty</th><th>Cost Price</th><th>Total</th></tr></thead>
+    <tbody>
+    {% for li in line_items %}
+      <tr><td>{{ li.item_code }}</td><td>{{ li.item_name }}</td><td>{{ li.qty }}</td><td>{{ li.cost_price|money }}</td><td>{{ li.total|money }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <h5>Total: {{ purchase.total_amount|money }}</h5>
+  <p>Payment Status: <span class="badge bg-secondary">{{ purchase.payment_status }}</span> (Paid: {{ purchase.amount_paid|money }})</p>
+  {% if purchase.notes %}<p class="text-muted">Notes: {{ purchase.notes }}</p>{% endif %}
+  <a href="{{ url_for('purchases.list_purchases') }}" class="btn btn-outline-secondary">Back</a>
+</div>
+{% endblock %}

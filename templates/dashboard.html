@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h4 class="mb-3">Dashboard — {{ today }}</h4>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-3">
+    <div class="card p-3 stat-card">
+      <div class="text-muted small">Opening Balance (today)</div>
+      <h2>{{ de.opening_balance|money }}</h2>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card p-3 stat-card">
+      <div class="text-muted small">Cash Sales Today</div>
+      <h2 class="text-success">{{ de.cash_sales|money }}</h2>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card p-3 stat-card">
+      <div class="text-muted small">Credit Sales Today</div>
+      <h2 class="text-warning">{{ de.credit_sales|money }}</h2>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card p-3 stat-card">
+      <div class="text-muted small">Online Sales Today</div>
+      <h2 class="text-info">{{ de.online_sales|money }}</h2>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-3">
+    <div class="card p-3 stat-card">
+      <div class="text-muted small">Invoices Today</div>
+      <h2>{{ invoice_count_today }}</h2>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card p-3 stat-card">
+      <div class="text-muted small">Expected Cash in Drawer</div>
+      <h2>{{ de.closing_balance_expected|money }}</h2>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card p-3 stat-card">
+      <div class="text-muted small">Total Customer Dues</div>
+      <h2 class="text-danger">{{ total_credit_due|money }}</h2>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card p-3 stat-card">
+      <div class="text-muted small">Low Stock Items</div>
+      <h2 class="{{ 'text-danger' if low_stock_count else '' }}">{{ low_stock_count }}</h2>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-md-7">
+    <div class="card p-3">
+      <h5>Recent Invoices</h5>
+      <table class="table table-sm">
+        <thead><tr><th>Invoice #</th><th>Customer</th><th>Mode</th><th>Total</th><th></th></tr></thead>
+        <tbody>
+        {% for inv in recent_invoices %}
+          <tr>
+            <td>{{ inv.invoice_no }}</td>
+            <td>{{ inv.customer_name }}</td>
+            <td><span class="badge bg-secondary">{{ inv.payment_mode }}</span></td>
+            <td>{{ inv.total_amount|money }}</td>
+            <td><a href="{{ url_for('sales.view_invoice', invoice_id=inv.id) }}" class="btn btn-sm btn-outline-primary">View</a></td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5" class="text-muted">No invoices yet. <a href="{{ url_for('sales.new_invoice') }}">Create your first sale</a>.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="col-md-5">
+    <div class="card p-3">
+      <h5>Low Stock Alerts</h5>
+      <table class="table table-sm">
+        <thead><tr><th>Item</th><th>Stock</th><th>Reorder Level</th></tr></thead>
+        <tbody>
+        {% for it in low_stock %}
+          <tr class="table-danger"><td>{{ it.name }} <small class="text-muted">({{ it.item_code }})</small></td><td>{{ it.stock_qty }}</td><td>{{ it.reorder_level }}</td></tr>
+        {% else %}
+          <tr><td colspan="3" class="text-muted">All stock levels healthy.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="card p-3 mt-3">
+      <h5>Quick Stats</h5>
+      <p class="mb-1">Total active items: <strong>{{ item_count }}</strong></p>
+      <p class="mb-0">Total active customers: <strong>{{ customer_count }}</strong></p>
+    </div>
+  </div>
+</div>
+{% endblock %}
