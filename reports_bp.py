@@ -29,7 +29,7 @@ def sales_report():
         """SELECT inv.invoice_no, inv.invoice_date, inv.business_date,
                   COALESCE(c.name,'Walk-in') AS customer_name, inv.payment_mode,
                   inv.subtotal, inv.discount, inv.tax, inv.total_amount,
-                  inv.amount_paid, inv.balance, inv.status
+                  inv.amount_paid, inv.balance, inv.status, inv.source
            FROM invoices inv LEFT JOIN customers c ON c.id = inv.customer_id
            WHERE inv.business_date BETWEEN ? AND ?
            ORDER BY inv.invoice_date""",

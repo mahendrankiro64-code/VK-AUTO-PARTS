@@ -1,4 +1,4 @@
-body { background-color: #f4f6f9; }
+body { background-color: var(--vk-surface, #f4f6f9); }
 .card { border: none; box-shadow: 0 1px 3px rgba(0,0,0,.08); border-radius: .6rem; }
 .stat-card h2 { font-weight: 700; }
 .table thead th { background-color: #eef1f5; }
@@ -7,8 +7,36 @@ body { background-color: #f4f6f9; }
   body { background: #fff; }
 }
 
+/* ---- Theme wiring: these rules make the color picked in Settings apply
+   to the nav bar and the app's primary buttons everywhere, by pointing
+   Bootstrap's own CSS variables at our theme colors (see the inline
+   :root {...} block in base.html for where --bs-primary etc. get set). ---- */
+.navbar.bg-dark { background-color: var(--vk-navbar, #12263a) !important; }
+.btn-primary {
+  --bs-btn-bg: var(--bs-primary);
+  --bs-btn-border-color: var(--bs-primary);
+  --bs-btn-hover-bg: var(--vk-primary-dark, var(--bs-primary));
+  --bs-btn-hover-border-color: var(--vk-primary-dark, var(--bs-primary));
+  --bs-btn-active-bg: var(--vk-primary-dark, var(--bs-primary));
+  --bs-btn-active-border-color: var(--vk-primary-dark, var(--bs-primary));
+  --bs-btn-disabled-bg: var(--bs-primary);
+  --bs-btn-disabled-border-color: var(--bs-primary);
+}
+.btn-outline-primary {
+  --bs-btn-color: var(--bs-primary);
+  --bs-btn-border-color: var(--bs-primary);
+  --bs-btn-hover-bg: var(--bs-primary);
+  --bs-btn-hover-border-color: var(--bs-primary);
+  --bs-btn-active-bg: var(--vk-primary-dark, var(--bs-primary));
+  --bs-btn-active-border-color: var(--vk-primary-dark, var(--bs-primary));
+}
+a { color: var(--bs-primary); }
+
 /* Point of Sale screen */
-.pos-scan-card { border: 2px solid #0d6efd22; background: linear-gradient(135deg, #eef4ff, #ffffff); }
+.pos-scan-card { border: 2px solid rgba(var(--bs-primary-rgb), .15); background: linear-gradient(135deg, rgba(var(--bs-primary-rgb),.06), #ffffff); }
+.pos-header h4 { font-weight: 700; }
+.pos-grand-total { color: var(--vk-primary-dark, var(--bs-primary)); }
+
 .pos-item-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -18,16 +46,110 @@ body { background-color: #f4f6f9; }
 }
 .pos-item-card {
   border: 1px solid #e2e6ea;
-  border-radius: .5rem;
+  border-radius: .6rem;
   padding: 10px;
   cursor: pointer;
   background: #fff;
-  transition: box-shadow .15s, transform .1s;
+  transition: box-shadow .15s, transform .1s, border-color .15s;
 }
-.pos-item-card:hover { box-shadow: 0 3px 10px rgba(13,110,253,.15); transform: translateY(-2px); border-color: #0d6efd66; }
+.pos-item-card:hover {
+  box-shadow: 0 4px 14px rgba(var(--bs-primary-rgb),.18);
+  transform: translateY(-2px);
+  border-color: rgba(var(--bs-primary-rgb),.5);
+}
 .pos-item-name { font-weight: 600; font-size: .9rem; line-height: 1.2; min-height: 2.2em; }
 .pos-item-code { font-size: .75rem; color: #888; }
-.pos-item-price { font-weight: 700; color: #0d6efd; margin-top: 4px; }
+.pos-item-price { font-weight: 700; color: var(--bs-primary); margin-top: 4px; }
 .pos-item-stock { font-size: .75rem; }
-.pos-cart-card { position: sticky; top: 75px; }
-.pos-header h4 { font-weight: 700; }
+.pos-cart-card {
+  position: sticky;
+  top: 75px;
+  border-top: 3px solid var(--bs-primary);
+}
+
+/* Instant search-as-you-type dropdown */
+.pos-search-wrap { position: relative; }
+.pos-search-icon {
+  position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+  color: #9aa2ab; pointer-events: none;
+}
+.pos-search-input { padding-left: 38px; border-radius: 2rem; }
+.pos-search-input:focus {
+  border-color: var(--bs-primary);
+  box-shadow: 0 0 0 .2rem rgba(var(--bs-primary-rgb), .15);
+}
+.pos-search-dropdown {
+  display: none;
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 4px);
+  left: 0; right: 0;
+  background: #fff;
+  border: 1px solid #e2e6ea;
+  border-radius: .6rem;
+  box-shadow: 0 8px 24px rgba(0,0,0,.12);
+  max-height: 320px;
+  overflow-y: auto;
+}
+.pos-search-dropdown.show { display: block; }
+.pos-search-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 14px; cursor: pointer; border-bottom: 1px solid #f1f2f4;
+}
+.pos-search-row:last-child { border-bottom: none; }
+.pos-search-row:hover, .pos-search-row.active { background: rgba(var(--bs-primary-rgb), .08); }
+.pos-search-row-name { font-weight: 600; font-size: .9rem; }
+.pos-search-row-code { font-size: .78rem; color: #888; }
+.pos-search-row-price { font-weight: 700; color: var(--bs-primary); white-space: nowrap; }
+.pos-search-empty { padding: 14px; color: #888; text-align: center; font-size: .9rem; }
+
+/* Elegant Cash / Online / Credit payment toggle buttons */
+.pos-pay-toggle {
+  display: flex;
+  gap: 6px;
+  background: #f1f3f5;
+  border-radius: .6rem;
+  padding: 4px;
+}
+.pos-pay-btn {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 8px 6px;
+  font-size: .85rem;
+  font-weight: 600;
+  color: #666;
+  border-radius: .5rem;
+  transition: background .15s, color .15s, box-shadow .15s;
+}
+.pos-pay-btn:hover { color: #333; }
+.pos-pay-btn.active {
+  background: var(--bs-primary);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(var(--bs-primary-rgb), .35);
+}
+
+/* Settings page: logo preview + theme swatch picker */
+.logo-preview-box {
+  width: 72px; height: 72px;
+  border: 1px dashed #ccc;
+  border-radius: .5rem;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  background: #fafbfc;
+  flex-shrink: 0;
+  font-size: 1.5rem;
+}
+.logo-preview-box img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.theme-swatch-label { cursor: pointer; display: block; }
+.theme-swatch {
+  height: 52px;
+  border-radius: .6rem;
+  border: 2px solid transparent;
+  transition: box-shadow .15s, border-color .15s;
+}
+.theme-swatch-radio { position: absolute; opacity: 0; pointer-events: none; }
+.theme-swatch-radio:checked + .theme-swatch {
+  border-color: #333;
+  box-shadow: 0 0 0 3px rgba(0,0,0,.08);
+}

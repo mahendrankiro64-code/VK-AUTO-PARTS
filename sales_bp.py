@@ -159,9 +159,13 @@ def cancel_invoice(invoice_id):
         "SELECT * FROM invoice_items WHERE invoice_id=?", (invoice_id,)
     ).fetchall()
     for li in line_items:
-        db.execute(
-            "UPDATE items SET stock_qty = stock_qty + ? WHERE id=?", (li["qty"], li["item_id"])
-        )
+        # Scanned/manual bills (see scan_bp.py) have no matched inventory
+        # item -- item_id is NULL for those lines, so there's no stock to
+        # restore.
+        if li["item_id"]:
+            db.execute(
+                "UPDATE items SET stock_qty = stock_qty + ? WHERE id=?", (li["qty"], li["item_id"])
+            )
     if invoice["customer_id"] and invoice["balance"] > 0:
         db.execute(
             "UPDATE customers SET balance_due = balance_due - ? WHERE id=?",

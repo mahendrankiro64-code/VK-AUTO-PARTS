@@ -19,14 +19,15 @@
 
 <div class="card p-3">
 <table class="table table-sm">
-  <thead><tr><th>Invoice #</th><th>Date</th><th>Customer</th><th>Mode</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th></tr></thead>
+  <thead><tr><th>Invoice #</th><th>Date</th><th>Customer</th><th>Mode</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th><th>Source</th></tr></thead>
   <tbody>
   {% for r in rows %}
     <tr><td>{{ r.invoice_no }}</td><td>{{ r.invoice_date }}</td><td>{{ r.customer_name }}</td>
         <td>{{ r.payment_mode }}</td><td>{{ r.total_amount|money }}</td><td>{{ r.amount_paid|money }}</td>
-        <td>{{ r.balance|money }}</td><td>{{ r.status }}</td></tr>
+        <td>{{ r.balance|money }}</td><td>{{ r.status }}</td>
+        <td>{% if r.source == 'manual_scan' %}<span class="badge bg-info text-dark">Scanned</span>{% else %}POS{% endif %}</td></tr>
   {% else %}
-    <tr><td colspan="8" class="text-muted">No sales in this range.</td></tr>
+    <tr><td colspan="9" class="text-muted">No sales in this range.</td></tr>
   {% endfor %}
   </tbody>
 </table>

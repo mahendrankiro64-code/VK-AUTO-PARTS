@@ -16,7 +16,9 @@
 <div class="card p-4" id="printArea">
   <div class="d-flex justify-content-between">
     <div class="d-flex align-items-center">
-      {% if logo_filename %}
+      {% if logo_data %}
+      <img src="{{ logo_data }}" alt="{{ biz_name }}" style="height:56px;width:auto;margin-right:12px;">
+      {% elif logo_filename %}
       <img src="{{ url_for('static', filename='img/' ~ logo_filename) }}" alt="{{ biz_name }}" style="height:56px;width:auto;margin-right:12px;">
       {% endif %}
       <div>
@@ -29,6 +31,9 @@
       <h5>Invoice: {{ invoice.invoice_no }}</h5>
       <p class="mb-0">Date: {{ invoice.invoice_date }}</p>
       <p class="mb-0">Status: <strong>{{ invoice.status }}</strong></p>
+      {% if invoice.source == 'manual_scan' %}
+      <p class="mb-0"><span class="badge bg-info text-dark">Scanned Manual Bill</span></p>
+      {% endif %}
     </div>
   </div>
   <hr>
@@ -43,6 +48,13 @@
     {% endfor %}
     </tbody>
   </table>
+
+  {% if invoice.notes %}
+  <div class="mb-3 p-2" style="background:#f8f9fa; border-radius:.4rem;">
+    <div class="text-muted small mb-1">Original bill text (from scan):</div>
+    <div style="white-space: pre-wrap; font-size: .85rem;">{{ invoice.notes }}</div>
+  </div>
+  {% endif %}
 
   <div class="row justify-content-end">
     <div class="col-md-4">

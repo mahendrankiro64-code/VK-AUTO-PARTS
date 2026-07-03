@@ -106,12 +106,14 @@ def record_payment(customer_id):
         flash("Enter a valid payment amount.", "danger")
         return redirect(url_for("customers.view_customer", customer_id=customer_id))
 
-    db.execute(
+    receipt_no = next_sequence_code(db, "receipt_seq", "RCT", pad=5)
+    cur = db.execute(
         """INSERT INTO payments (customer_id, invoice_id, amount, payment_date,
-           payment_mode, notes, created_by) VALUES (?,?,?,?,?,?,?)""",
+           payment_mode, notes, created_by, receipt_no) VALUES (?,?,?,?,?,?,?,?) RETURNING id""",
         (customer_id, invoice_id, amount, today_str(), mode, notes,
-         g.user["id"] if g.user else None),
+         g.user["id"] if g.user else None, receipt_no),
     )
+    payment_id = cur.fetchone()["id"]
     db.execute(
         "UPDATE customers SET balance_due = balance_due - ? WHERE id=?",
         (amount, customer_id),
@@ -122,5 +124,37 @@ def record_payment(customer_id):
             (amount, amount, invoice_id),
         )
     db.commit()
-    flash("Payment recorded.", "success")
-    return redirect(url_for("customers.view_customer", customer_id=customer_id))
+    flash(f"Payment recorded ({receipt_no}). Receipt ready to print.", "success")
+    return redirect(url_for("customers.view_receipt", customer_id=customer_id, payment_id=payment_id))
+
+
+@bp.route("/<int:customer_id>/payment/<int:payment_id>/receipt")
+@login_required
+def view_receipt(customer_id, payment_id):
+    db = get_db()
+    payment = db.execute(
+        """SELECT p.*, c.name AS customer_name, c.phone AS customer_phone,
+                  c.balance_due AS customer_balance_due
+           FROM payments p JOIN customers c ON c.id = p.customer_id
+           WHERE p.id=? AND p.customer_id=?""",
+        (payment_id, customer_id),
+    ).fetchone()
+    if not payment:
+        flash("Receipt not found.", "danger")
+        return redirect(url_for("customers.view_customer", customer_id=customer_id))
+
+    invoice = None
+    if payment["invoice_id"]:
+        invoice = db.execute(
+            "SELECT invoice_no FROM invoices WHERE id=?", (payment["invoice_id"],)
+        ).fetchone()
+
+    received_by = None
+    if payment["created_by"]:
+        received_by = db.execute(
+            "SELECT full_name FROM users WHERE id=?", (payment["created_by"],)
+        ).fetchone()
+
+    return render_template(
+        "customers/receipt.html", payment=payment, invoice=invoice, received_by=received_by
+    )

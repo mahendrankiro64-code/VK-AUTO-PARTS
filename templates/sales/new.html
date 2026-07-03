@@ -3,10 +3,12 @@
 {% block content %}
 <div class="pos-header d-flex align-items-center justify-content-between mb-3">
   <div class="d-flex align-items-center gap-2">
-    {% if logo_filename %}
+    {% if logo_data %}
+      <img src="{{ logo_data }}" alt="logo" style="height:48px;border-radius:6px;">
+    {% elif logo_filename %}
       <img src="{{ url_for('static', filename='img/' ~ logo_filename) }}" alt="logo" style="height:48px;">
     {% else %}
-      <i class="bi bi-gear-wide-connected" style="font-size:2rem;color:#0d6efd;"></i>
+      <i class="bi bi-gear-wide-connected" style="font-size:2rem;color:var(--bs-primary);"></i>
     {% endif %}
     <div>
       <h4 class="mb-0">{{ biz_name }}</h4>
@@ -35,7 +37,12 @@
     </div>
 
     <div class="card p-3">
-      <input type="text" id="itemSearch" class="form-control mb-3" placeholder="Or search by name / code / brand..." oninput="filterItems()">
+      <div class="pos-search-wrap mb-3">
+        <i class="bi bi-search pos-search-icon"></i>
+        <input type="text" id="itemSearch" class="form-control pos-search-input" autocomplete="off"
+               placeholder="Type an item code or name to search... (e.g. VKAP or Brake)">
+        <div id="searchDropdown" class="pos-search-dropdown"></div>
+      </div>
       <div class="pos-item-grid" id="itemGrid">
         {% for it in items %}
         <div class="pos-item-card" data-search="{{ (it.item_code ~ ' ' ~ it.name ~ ' ' ~ (it.brand or ''))|lower }}"
@@ -54,14 +61,14 @@
   <div class="col-lg-5">
     <div class="card p-3 pos-cart-card">
       <h6 class="mb-2">Cart</h6>
-      <div id="cartEmpty" class="text-muted small">No items yet &mdash; scan or tap an item to add it.</div>
+      <div id="cartEmpty" class="text-muted small">No items yet &mdash; scan, search, or tap an item to add it.</div>
       <table class="table table-sm" id="cartTable" style="display:none;">
         <thead><tr><th>Item</th><th style="width:70px;">Qty</th><th>Price</th><th>Total</th><th></th></tr></thead>
         <tbody id="cartBody"></tbody>
       </table>
 
       <div class="row g-2 mt-2">
-        <div class="col-6">
+        <div class="col-12">
           <label class="form-label small">Customer</label>
           <select name="customer_id" class="form-select form-select-sm">
             <option value="">-- Walk-in --</option>
@@ -70,13 +77,20 @@
             {% endfor %}
           </select>
         </div>
-        <div class="col-6">
-          <label class="form-label small">Payment Mode</label>
-          <select name="payment_mode" id="paymentMode" class="form-select form-select-sm" onchange="togglePaid()">
-            <option value="cash">Cash</option>
-            <option value="online">Online</option>
-            <option value="credit">Credit</option>
-          </select>
+        <div class="col-12">
+          <label class="form-label small d-block">Payment Mode</label>
+          <input type="hidden" name="payment_mode" id="paymentMode" value="cash">
+          <div class="pos-pay-toggle" role="group">
+            <button type="button" class="pos-pay-btn active" data-mode="cash" onclick="setPaymentMode('cash')">
+              <i class="bi bi-cash-coin"></i> Cash
+            </button>
+            <button type="button" class="pos-pay-btn" data-mode="online" onclick="setPaymentMode('online')">
+              <i class="bi bi-phone"></i> Online
+            </button>
+            <button type="button" class="pos-pay-btn" data-mode="credit" onclick="setPaymentMode('credit')">
+              <i class="bi bi-journal-text"></i> Credit
+            </button>
+          </div>
         </div>
         <div class="col-6" id="paidWrap" style="display:none;">
           <label class="form-label small">Amount Paid Now</label>
@@ -94,7 +108,7 @@
 
       <hr>
       <div class="d-flex justify-content-between"><span>Subtotal</span><strong>Rs. <span id="subTotal">0.00</span></strong></div>
-      <div class="d-flex justify-content-between fs-4"><span>Total</span><strong>Rs. <span id="grandTotal">0.00</span></strong></div>
+      <div class="d-flex justify-content-between fs-4 pos-grand-total"><span>Total</span><strong>Rs. <span id="grandTotal">0.00</span></strong></div>
 
       <button type="submit" class="btn btn-success btn-lg w-100 mt-3" id="completeBtn" disabled>
         <i class="bi bi-check-circle"></i> Complete Sale
@@ -123,6 +137,15 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 <script>
 let cart = {}; // item_id -> {code, name, price, qty, stock, unit}
+
+// Full item list available client-side for the instant search dropdown
+// (typing the first letter(s) of a code or name shows a clickable list).
+const ITEMS_ALL = [
+  {% for it in items %}
+  {id: {{ it.id }}, code: {{ it.item_code|tojson }}, name: {{ it.name|tojson }},
+   price: {{ it.selling_price }}, stock: {{ it.stock_qty }}, unit: {{ it.unit|tojson }}},
+  {% endfor %}
+];
 
 function fmt(n) { return n.toFixed(2); }
 
@@ -201,15 +224,96 @@ function renderCart() {
 
 function recalc() { renderCart(); }
 
+// ---- Instant search-as-you-type dropdown ----
+// Typing the first letter(s) of an item code (or any part of its name) opens
+// a clickable dropdown list right under the search box, exactly like an
+// autocomplete box -- click (or arrow keys + Enter) adds it to the cart.
+const searchInput = document.getElementById('itemSearch');
+const searchDropdown = document.getElementById('searchDropdown');
+let searchMatches = [];
+let searchActiveIndex = -1;
+
 function filterItems() {
-  const q = document.getElementById('itemSearch').value.toLowerCase();
+  const q = searchInput.value.trim().toLowerCase();
+  searchActiveIndex = -1;
+
+  // Keep the tap-friendly grid below in sync too.
   document.querySelectorAll('.pos-item-card').forEach(card => {
-    card.style.display = card.dataset.search.includes(q) ? '' : 'none';
+    card.style.display = (!q || card.dataset.search.includes(q)) ? '' : 'none';
   });
+
+  if (!q) {
+    searchDropdown.classList.remove('show');
+    searchDropdown.innerHTML = '';
+    return;
+  }
+
+  searchMatches = ITEMS_ALL.filter(it =>
+    it.code.toLowerCase().startsWith(q) ||
+    it.code.toLowerCase().includes(q) ||
+    it.name.toLowerCase().includes(q)
+  ).slice(0, 8);
+
+  renderSearchDropdown();
 }
 
-function togglePaid() {
-  const mode = document.getElementById('paymentMode').value;
+function renderSearchDropdown() {
+  if (searchMatches.length === 0) {
+    searchDropdown.innerHTML = '<div class="pos-search-empty">No matching items</div>';
+    searchDropdown.classList.add('show');
+    return;
+  }
+  searchDropdown.innerHTML = searchMatches.map((it, i) => `
+    <div class="pos-search-row ${i === searchActiveIndex ? 'active' : ''}" data-index="${i}" onclick="pickSearchResult(${i})">
+      <div>
+        <div class="pos-search-row-name">${it.name}</div>
+        <div class="pos-search-row-code">${it.code}${it.stock <= 0 ? ' &middot; out of stock' : ''}</div>
+      </div>
+      <div class="pos-search-row-price">Rs. ${it.price.toFixed(2)}</div>
+    </div>
+  `).join('');
+  searchDropdown.classList.add('show');
+}
+
+function pickSearchResult(i) {
+  const it = searchMatches[i];
+  if (!it) return;
+  addToCart(it.id, it.code, it.name, it.price, it.stock, it.unit);
+  searchInput.value = '';
+  searchDropdown.classList.remove('show');
+  searchDropdown.innerHTML = '';
+  searchInput.focus();
+}
+
+searchInput.addEventListener('input', filterItems);
+searchInput.addEventListener('keydown', function(e) {
+  if (!searchDropdown.classList.contains('show') || searchMatches.length === 0) return;
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    searchActiveIndex = Math.min(searchActiveIndex + 1, searchMatches.length - 1);
+    renderSearchDropdown();
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    searchActiveIndex = Math.max(searchActiveIndex - 1, 0);
+    renderSearchDropdown();
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    pickSearchResult(searchActiveIndex >= 0 ? searchActiveIndex : 0);
+  } else if (e.key === 'Escape') {
+    searchDropdown.classList.remove('show');
+  }
+});
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.pos-search-wrap')) {
+    searchDropdown.classList.remove('show');
+  }
+});
+
+function setPaymentMode(mode) {
+  document.getElementById('paymentMode').value = mode;
+  document.querySelectorAll('.pos-pay-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.mode === mode);
+  });
   document.getElementById('paidWrap').style.display = (mode === 'credit') ? 'block' : 'none';
 }
 

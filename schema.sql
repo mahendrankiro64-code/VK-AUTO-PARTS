@@ -195,6 +195,22 @@ CREATE TABLE IF NOT EXISTS payments (
     FOREIGN KEY (invoice_id) REFERENCES invoices(id)
 );
 
+-- Printable receipt number for every payment collected against a credit
+-- customer's balance (see customers_bp.py record_payment / view_receipt).
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS receipt_no TEXT;
+
+-- Manual / scanned paper bills: the shop sometimes writes a bill by hand.
+-- The photo is OCR'd to text right in the browser (Tesseract.js) and only
+-- the confirmed text is ever sent to the server -- the image itself is
+-- never uploaded or stored anywhere. 'source' distinguishes these entries
+-- from normal POS sales in reports; 'notes' holds the confirmed OCR text.
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'pos';
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS notes TEXT;
+
+-- A scanned bill has no matched inventory item (just free text), so the
+-- line item it gets stored under must be allowed a NULL item_id.
+ALTER TABLE invoice_items ALTER COLUMN item_id DROP NOT NULL;
+
 CREATE TABLE IF NOT EXISTS day_end (
     id SERIAL PRIMARY KEY,
     business_date TEXT UNIQUE NOT NULL,

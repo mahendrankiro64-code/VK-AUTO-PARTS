@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block title %}Scan Manual Bill{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4>Scan a Manual / Handwritten Bill</h4>
+  <a href="{{ url_for('sales.new_invoice') }}" class="btn btn-outline-secondary btn-sm">Back to POS</a>
+</div>
+<p class="text-muted">
+  For the times a bill was written by hand instead of through the software. Take a photo (or upload
+  one) of the paper bill, the text is read directly on this device, and you confirm/fix it below.
+  <strong>The photo itself is never uploaded or saved anywhere</strong> &mdash; only the text you
+  confirm gets added as a new invoice.
+</p>
+
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card p-3 mb-3">
+      <h6>1. Photo of the bill</h6>
+      <input type="file" id="billImage" accept="image/*" capture="environment" class="form-control mb-2">
+      <img id="billPreview" style="display:none; max-width:100%; border-radius:.5rem; margin-bottom:10px;">
+      <button type="button" id="extractBtn" class="btn btn-primary w-100" disabled onclick="extractText()">
+        <i class="bi bi-body-text"></i> Extract Text From Photo
+      </button>
+      <div id="ocrProgress" class="mt-2 small text-muted" style="display:none;"></div>
+    </div>
+
+    <div class="card p-3">
+      <h6>2. Confirm / fix the text</h6>
+      <textarea id="scannedText" name="scanned_text" form="scanForm" class="form-control" rows="10"
+                placeholder="Extracted text will appear here -- check it against the paper bill and fix anything OCR got wrong before saving."></textarea>
+      <small class="text-muted d-block mt-1">This text is what gets saved (as a note on the invoice). The photo itself is discarded after this step.</small>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card p-3">
+      <h6>3. Bill details</h6>
+      <form method="post" id="scanForm">
+        <div class="mb-2">
+          <label class="form-label small">Customer</label>
+          <select name="customer_id" class="form-select">
+            <option value="">-- Walk-in --</option>
+            {% for c in customers %}
+              <option value="{{ c.id }}">{{ c.name }} ({{ c.customer_code }}){% if c.customer_type=='credit' %} - Credit{% endif %}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mb-2">
+          <label class="form-label small">Total Amount (as written on the bill)</label>
+          <input type="number" step="0.01" name="total_amount" id="totalAmount" class="form-control" required>
+        </div>
+        <div class="mb-2">
+          <label class="form-label small d-block">Payment Mode</label>
+          <input type="hidden" name="payment_mode" id="scanPaymentMode" value="cash">
+          <div class="pos-pay-toggle" role="group">
+            <button type="button" class="pos-pay-btn active" data-mode="cash" onclick="setScanPaymentMode('cash')">
+              <i class="bi bi-cash-coin"></i> Cash
+            </button>
+            <button type="button" class="pos-pay-btn" data-mode="online" onclick="setScanPaymentMode('online')">
+              <i class="bi bi-phone"></i> Online
+            </button>
+            <button type="button" class="pos-pay-btn" data-mode="credit" onclick="setScanPaymentMode('credit')">
+              <i class="bi bi-journal-text"></i> Credit
+            </button>
+          </div>
+        </div>
+        <div class="mb-2" id="scanPaidWrap" style="display:none;">
+          <label class="form-label small">Amount Paid Now</label>
+          <input type="number" step="0.01" name="amount_paid" class="form-control" value="0">
+        </div>
+        <button type="submit" class="btn btn-success w-100 mt-2"><i class="bi bi-check-circle"></i> Save as New Invoice</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.0/tesseract.min.js"></script>
+<script>
+const billImageInput = document.getElementById('billImage');
+const billPreview = document.getElementById('billPreview');
+const extractBtn = document.getElementById('extractBtn');
+const ocrProgress = document.getElementById('ocrProgress');
+let selectedFile = null;
+
+billImageInput.addEventListener('change', function() {
+  const file = this.files[0];
+  if (!file) return;
+  selectedFile = file;
+  billPreview.src = URL.createObjectURL(file);
+  billPreview.style.display = 'block';
+  extractBtn.disabled = false;
+});
+
+function extractText() {
+  if (!selectedFile) return;
+  extractBtn.disabled = true;
+  ocrProgress.style.display = 'block';
+  ocrProgress.textContent = 'Reading text from the photo... this can take 10-20 seconds.';
+
+  Tesseract.recognize(selectedFile, 'eng', {
+    logger: m => {
+      if (m.status === 'recognizing text') {
+        ocrProgress.textContent = 'Reading text... ' + Math.round(m.progress * 100) + '%';
+      }
+    }
+  }).then(({ data: { text } }) => {
+    document.getElementById('scannedText').value = text.trim();
+    ocrProgress.textContent = 'Done -- check the text on the left against the paper bill.';
+    extractBtn.disabled = false;
+
+    // Best-effort: if a line looks like "Total 1500" or "Rs. 1500", prefill
+    // the amount field. The shop keeper should always double-check this.
+    const match = text.match(/(?:total|amount|rs\.?)\s*[:\-]?\s*([0-9][0-9,]*\.?[0-9]*)/i);
+    if (match) {
+      const num = parseFloat(match[1].replace(/,/g, ''));
+      if (!isNaN(num) && num > 0 && !document.getElementById('totalAmount').value) {
+        document.getElementById('totalAmount').value = num;
+      }
+    }
+  }).catch(err => {
+    ocrProgress.textContent = 'Could not read the image (' + err + '). You can still type the text manually on the left.';
+    extractBtn.disabled = false;
+  });
+}
+
+function setScanPaymentMode(mode) {
+  document.getElementById('scanPaymentMode').value = mode;
+  document.querySelectorAll('#scanForm .pos-pay-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.mode === mode);
+  });
+  document.getElementById('scanPaidWrap').style.display = (mode === 'credit') ? 'block' : 'none';
+}
+</script>
+{% endblock %}

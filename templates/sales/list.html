@@ -12,7 +12,7 @@
 </form>
 <div class="card p-3">
 <table class="table table-hover">
-  <thead><tr><th>Invoice #</th><th>Date</th><th>Customer</th><th>Mode</th><th>Total</th><th>Balance</th><th></th></tr></thead>
+  <thead><tr><th>Invoice #</th><th>Date</th><th>Customer</th><th>Mode</th><th>Total</th><th>Balance</th><th></th><th></th></tr></thead>
   <tbody>
   {% for inv in invoices %}
     <tr>
@@ -22,10 +22,11 @@
       <td><span class="badge bg-secondary">{{ inv.payment_mode }}</span></td>
       <td>{{ inv.total_amount|money }}</td>
       <td class="{{ 'text-danger' if inv.balance > 0 else '' }}">{{ inv.balance|money }}</td>
+      <td>{% if inv.source == 'manual_scan' %}<span class="badge bg-info text-dark">Scanned</span>{% endif %}</td>
       <td><a href="{{ url_for('sales.view_invoice', invoice_id=inv.id) }}" class="btn btn-sm btn-outline-primary">View</a></td>
     </tr>
   {% else %}
-    <tr><td colspan="7" class="text-muted">No invoices found.</td></tr>
+    <tr><td colspan="8" class="text-muted">No invoices found.</td></tr>
   {% endfor %}
   </tbody>
 </table>

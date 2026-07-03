@@ -20,6 +20,8 @@ import racks_bp
 import quotations_bp
 import accounts_bp
 import settings_bp
+import scan_bp
+import themes
 from db import get_setting
 
 
@@ -51,6 +53,7 @@ def create_app():
     app.register_blueprint(quotations_bp.bp)
     app.register_blueprint(accounts_bp.bp)
     app.register_blueprint(settings_bp.bp)
+    app.register_blueprint(scan_bp.bp)
 
     app.jinja_env.filters["money"] = fmt_money
     app.jinja_env.globals["has_permission"] = auth.has_permission
@@ -63,23 +66,29 @@ def create_app():
             db = get_db()
             shop_name = get_setting(db, "shop_name", "VK Auto Parts")
             logo_filename = get_setting(db, "logo_filename", "")
+            logo_data = get_setting(db, "logo_data", "")
             shop_address = get_setting(db, "shop_address", "")
             shop_phone = get_setting(db, "shop_phone", "")
             invoice_footer_note = get_setting(db, "invoice_footer_note", "Thank you for your business!")
+            theme = themes.get_theme(get_setting(db, "pos_theme", themes.DEFAULT_THEME))
         except Exception:
             shop_name = "VK Auto Parts"
             logo_filename = ""
+            logo_data = ""
             shop_address = ""
             shop_phone = ""
             invoice_footer_note = "Thank you for your business!"
+            theme = themes.get_theme(themes.DEFAULT_THEME)
         return {
             "current_user": getattr(g, "user", None),
             "today": today_str(),
             "biz_name": shop_name,
             "logo_filename": logo_filename,
+            "logo_data": logo_data,
             "shop_address": shop_address,
             "shop_phone": shop_phone,
             "invoice_footer_note": invoice_footer_note,
+            "theme": theme,
         }
 
     return app

@@ -1,4 +1,6 @@
-from flask import Blueprint, render_template, g
+from datetime import date, timedelta
+
+from flask import Blueprint, render_template, g, request
 from db import get_db
 from auth import login_required
 from helpers import today_str, get_or_create_open_dayend, recompute_dayend_totals
@@ -11,6 +13,23 @@ bp = Blueprint("dashboard", __name__)
 def index():
     db = get_db()
     biz_date = today_str()
+
+    trend_days = request.args.get("days", "14")
+    trend_days = int(trend_days) if trend_days in ("7", "14", "30") else 14
+    start_date = date.today() - timedelta(days=trend_days - 1)
+    trend_rows = db.execute(
+        """SELECT business_date, COALESCE(SUM(total_amount), 0) AS total
+           FROM invoices WHERE status='completed' AND business_date >= ?
+           GROUP BY business_date""",
+        (start_date.isoformat(),),
+    ).fetchall()
+    trend_map = {r["business_date"]: r["total"] for r in trend_rows}
+    trend_labels = []
+    trend_values = []
+    for i in range(trend_days - 1, -1, -1):
+        d = date.today() - timedelta(days=i)
+        trend_labels.append(d.strftime("%b %d"))
+        trend_values.append(trend_map.get(d.isoformat(), 0))
 
     de = get_or_create_open_dayend(db, opened_by=g.user["id"] if g.user else None)
     de = recompute_dayend_totals(db, de["business_date"]) or de
@@ -50,4 +69,7 @@ def index():
         recent_invoices=recent_invoices,
         item_count=item_count,
         customer_count=customer_count,
+        trend_labels=trend_labels,
+        trend_values=trend_values,
+        trend_days=trend_days,
     )

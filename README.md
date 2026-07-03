@@ -35,7 +35,9 @@ both problems for free.
   into a real invoice with one click — even weeks later. Stock is only deducted at conversion time,
   and stock/prices are re-checked at that moment.
 - **Point-of-Sale style Sales screen**: redesigned "New Sale" page with your shop logo, a scrollable
-  item grid, live search, and a running cart — built to be fast at the counter.
+  item grid, an instant search-as-you-type dropdown (type the first letters of an item code or name
+  and a clickable list appears immediately), and elegant Cash / Online / Credit payment buttons —
+  built to be fast and professional at the counter.
 - **Barcodes**: every item gets a scannable Code128 barcode automatically (it's just the item's own
   auto-generated code) with a ready-to-print label page (standard 40mm x 25mm sticker size). Scan at
   the POS screen with a USB/plug-in barcode scanner (works instantly, no setup — scanners just "type"
@@ -46,8 +48,21 @@ both problems for free.
 - **Accounts & Profit**: a simple, Sri Lankan cash-book style Accounts tab — no double-entry
   bookkeeping. Record day-to-day shop expenses (fuel, tea, rent, salaries, etc.) against categories,
   and see Revenue, Cost of Parts Sold, Gross Profit, Shop Expenses, and Net Profit for any date range.
-- **Invoice & Shop Settings**: admins can set the shop name, address, phone, invoice footer note, and
-  logo from Settings — these show up on the POS screen, the nav bar, and every printed invoice.
+- **Invoice, Shop & Theme Settings**: admins can set the shop name, address, phone, and invoice
+  footer note, upload the logo image directly from the Settings page (no GitHub or file steps —
+  it's saved straight into the database), and pick a color theme (Ocean Blue, Charcoal & Gold,
+  Emerald Green, or Maroon & Steel) that instantly recolors the nav bar and the whole POS screen.
+- **Dynamic Dashboard**: a live Sales Trend chart (7/14/30-day toggle) on the main Dashboard,
+  colored to match your chosen theme automatically.
+- **Payment Receipts**: recording a payment against a credit customer's balance now generates a
+  printable receipt (with an auto-generated receipt number) immediately — reprint any past
+  payment's receipt any time from that customer's Payment History.
+- **Scan a Manual Bill**: for the times a bill was written by hand instead of through the software.
+  Go to "Scan Bill," take a photo of the paper bill, and the text is read right there on your
+  phone/computer (no photo is ever uploaded or stored — only the text you confirm). Pick a customer,
+  type the total, choose Cash/Online/Credit, and it's saved as a real invoice alongside your POS
+  sales. Because it's free-form text rather than matched inventory items, it does not deduct stock
+  automatically — use New Sale (POS) instead when you need stock deducted too.
 
 ## Applying this update to your existing deployment
 
@@ -64,15 +79,18 @@ Once you commit, Render will automatically detect the change and redeploy within
 minutes. Log in and refresh — the new features (Quotations, Accounts, Racks, Settings, barcode
 printing, the new POS Sales screen, and per-user permissions on the Users page) will be there.
 
-**Two things only you can do, after this update is live:**
+**Two things only you can do, after this update is live — both from inside the app itself, no
+GitHub or file editing needed:**
 
-1. **Your logo** — go to your GitHub repo, open the `static/img/` folder, and upload your actual
-   shop logo image there (any filename, e.g. `logo.png`). Then in the app, go to **Settings**
-   (top-right dropdown menu, admin only) and type that exact filename into the "Logo filename" box.
-   Save, and it'll appear on the POS screen, the nav bar, and every invoice.
-2. **Shop address / phone / invoice footer** — also in **Settings**, fill in your phone number and
-   confirm the address, and change the invoice footer note if you'd like something other than
-   "Thank you for your business!".
+1. **Your logo** — log in as admin, go to **Settings** (top-right dropdown menu), and use the
+   "Upload" box under Logo to pick the image straight from your computer or phone. Save, and it
+   appears on the POS screen, the nav bar, and every invoice immediately. (There's still an older
+   fallback where you can put a file in `static/img/` on GitHub and type its filename — but you no
+   longer need to do that; uploading directly in Settings is simpler and works even without
+   touching GitHub at all.)
+2. **Shop address / phone / invoice footer / theme color** — also in **Settings**, fill in your
+   phone number, confirm the address, change the invoice footer note if you'd like, and pick a
+   color theme — it recolors the nav bar and POS screen the moment you save.
 
 Everything else (racks, categories, expense categories, staff permissions) you set up from inside
 the app itself — no file editing needed.

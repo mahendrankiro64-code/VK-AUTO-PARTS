@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Receipt {{ payment.receipt_no }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between mb-3 no-print">
+  <h4>Payment Receipt {{ payment.receipt_no }}</h4>
+  <div>
+    <button class="btn btn-outline-primary" onclick="window.print()"><i class="bi bi-printer"></i> Print</button>
+    <a href="{{ url_for('customers.view_customer', customer_id=payment.customer_id) }}" class="btn btn-outline-secondary">Back to Customer</a>
+  </div>
+</div>
+
+<div class="card p-4 mx-auto" style="max-width:560px;" id="printArea">
+  <div class="text-center mb-2">
+    {% if logo_data %}
+      <img src="{{ logo_data }}" alt="{{ biz_name }}" style="height:56px;">
+    {% elif logo_filename %}
+      <img src="{{ url_for('static', filename='img/' ~ logo_filename) }}" alt="{{ biz_name }}" style="height:56px;">
+    {% endif %}
+    <h4 class="mt-2 mb-0">{{ biz_name }}</h4>
+    {% if shop_address %}<p class="mb-0 text-muted small">{{ shop_address }}</p>{% endif %}
+    {% if shop_phone %}<p class="mb-0 text-muted small">{{ shop_phone }}</p>{% endif %}
+  </div>
+  <hr>
+  <h5 class="text-center mb-3">PAYMENT RECEIPT</h5>
+  <table class="table table-sm mb-2">
+    <tr><td class="text-muted">Receipt No.</td><td class="text-end fw-bold">{{ payment.receipt_no }}</td></tr>
+    <tr><td class="text-muted">Date</td><td class="text-end">{{ payment.payment_date }}</td></tr>
+    <tr><td class="text-muted">Received From</td><td class="text-end">{{ payment.customer_name }}</td></tr>
+    {% if payment.customer_phone %}<tr><td class="text-muted">Phone</td><td class="text-end">{{ payment.customer_phone }}</td></tr>{% endif %}
+    {% if invoice %}<tr><td class="text-muted">Against Invoice</td><td class="text-end">{{ invoice.invoice_no }}</td></tr>{% endif %}
+    <tr><td class="text-muted">Payment Mode</td><td class="text-end">{{ payment.payment_mode }}</td></tr>
+    {% if payment.notes %}<tr><td class="text-muted">Notes</td><td class="text-end">{{ payment.notes }}</td></tr>{% endif %}
+  </table>
+  <div class="text-center p-3 mb-2" style="background: rgba(var(--bs-primary-rgb), .08); border-radius: .5rem;">
+    <div class="text-muted small">Amount Received</div>
+    <h2 class="mb-0" style="color: var(--bs-primary);">{{ payment.amount|money }}</h2>
+  </div>
+  <table class="table table-sm">
+    <tr><td class="text-muted">Customer's Balance Due Now</td>
+        <td class="text-end {{ 'text-danger' if payment.customer_balance_due > 0 else 'text-success' }}">{{ payment.customer_balance_due|money }}</td></tr>
+    {% if received_by %}<tr><td class="text-muted">Received By</td><td class="text-end">{{ received_by.full_name }}</td></tr>{% endif %}
+  </table>
+  <p class="text-center text-muted small mt-3 mb-0">Thank you for your payment.</p>
+</div>
+{% endblock %}
