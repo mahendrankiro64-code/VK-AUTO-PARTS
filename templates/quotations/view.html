@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Quotation {{ quotation.quotation_no }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between mb-3 no-print">
+  <h4>Quotation {{ quotation.quotation_no }} <span class="badge bg-{{ 'success' if quotation.status=='converted' else ('secondary' if quotation.status=='cancelled' else 'warning text-dark') }}">{{ quotation.status }}</span></h4>
+  <button class="btn btn-outline-primary" onclick="window.print()"><i class="bi bi-printer"></i> Print</button>
+</div>
+
+<div class="card p-4 mb-3">
+  <div class="d-flex justify-content-between">
+    <div>
+      <h3>{{ biz_name }}</h3>
+      <p class="mb-0 text-muted">Quotation</p>
+    </div>
+    <div class="text-end">
+      <h5>{{ quotation.quotation_no }}</h5>
+      <p class="mb-0">Date: {{ quotation.quotation_date }}</p>
+      {% if quotation.valid_until %}<p class="mb-0">Valid until: {{ quotation.valid_until }}</p>{% endif %}
+    </div>
+  </div>
+  <hr>
+  <p><strong>Customer:</strong> {{ quotation.customer_name or 'Walk-in / not yet decided' }}
+    {% if quotation.customer_phone %} — {{ quotation.customer_phone }}{% endif %}</p>
+
+  <table class="table">
+    <thead><tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr></thead>
+    <tbody>
+    {% for li in line_items %}
+      <tr><td>{{ li.item_name }}</td><td>{{ li.qty }}</td><td>{{ li.unit_price|money }}</td><td>{{ li.total|money }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="row justify-content-end">
+    <div class="col-md-4">
+      <table class="table table-sm">
+        <tr><td>Subtotal</td><td class="text-end">{{ quotation.subtotal|money }}</td></tr>
+        <tr><td>Discount</td><td class="text-end">-{{ quotation.discount|money }}</td></tr>
+        <tr><td>Tax</td><td class="text-end">+{{ quotation.tax|money }}</td></tr>
+        <tr><th>Total</th><th class="text-end">{{ quotation.total_amount|money }}</th></tr>
+      </table>
+    </div>
+  </div>
+  {% if quotation.notes %}<p class="text-muted">{{ quotation.notes }}</p>{% endif %}
+</div>
+
+{% if quotation.status == 'open' %}
+<div class="card p-3 no-print">
+  <h6>Convert this quotation directly into an invoice</h6>
+  <p class="text-muted small">This works even for an old quotation from weeks ago — it creates a real invoice from these exact items and deducts stock now. Stock and prices are re-checked at the moment you convert.</p>
+  <form method="post" action="{{ url_for('quotations.convert_to_invoice', quotation_id=quotation.id) }}" class="row g-2">
+    <div class="col-md-3">
+      <select name="payment_mode" id="convPaymentMode" class="form-select" onchange="document.getElementById('convPaidWrap').style.display = this.value==='credit' ? 'block' : 'none';">
+        <option value="cash">Cash</option>
+        <option value="online">Online</option>
+        <option value="credit">Credit</option>
+      </select>
+    </div>
+    <div class="col-md-3" id="convPaidWrap" style="display:none;">
+      <input type="number" step="0.01" name="amount_paid" class="form-control" placeholder="Amount paid now" value="0">
+    </div>
+    <div class="col-md-3">
+      <button class="btn btn-success w-100" onclick="return confirm('Convert this quotation to a real invoice? Stock will be deducted now.');">
+        <i class="bi bi-arrow-right-circle"></i> Convert to Invoice
+      </button>
+    </div>
+  </form>
+  <form method="post" action="{{ url_for('quotations.cancel_quotation', quotation_id=quotation.id) }}" class="mt-2" onsubmit="return confirm('Cancel this quotation?');">
+    <button class="btn btn-outline-danger btn-sm">Cancel Quotation</button>
+  </form>
+</div>
+{% elif quotation.status == 'converted' %}
+<div class="card p-3 no-print">
+  <p class="mb-0">This quotation was already converted to an invoice.
+    <a href="{{ url_for('sales.view_invoice', invoice_id=quotation.converted_invoice_id) }}">View invoice &rarr;</a></p>
+</div>
+{% endif %}
+{% endblock %}

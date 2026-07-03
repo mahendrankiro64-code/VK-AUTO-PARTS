@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Barcode - {{ item.item_code }}</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/JsBarcode/3.11.6/JsBarcode.all.min.js"></script>
+<style>
+  body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f4f6f9; }
+  .toolbar { margin-bottom: 16px; }
+  .toolbar button, .toolbar a { padding: 8px 16px; font-size: 14px; margin-right: 8px; cursor: pointer; }
+  .label-sheet { display: flex; flex-wrap: wrap; gap: 10px; }
+  .label {
+    width: 40mm; height: 25mm;
+    border: 1px dashed #999;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: #fff; padding: 2mm; box-sizing: border-box; text-align: center;
+  }
+  .label .shop-name { font-size: 7px; font-weight: bold; }
+  .label .item-name { font-size: 7px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .label .price { font-size: 9px; font-weight: bold; }
+  .qty-control { margin-bottom: 12px; }
+  @media print {
+    .no-print { display: none !important; }
+    body { background: #fff; padding: 0; }
+    .label { border: none; }
+  }
+</style>
+</head>
+<body>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="no-print" style="padding:10px 14px;margin-bottom:12px;border-radius:6px;background:{{ '#d1e7dd' if category=='success' else '#f8d7da' }};color:{{ '#0f5132' if category=='success' else '#842029' }};">
+          {{ message }}
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+  <div class="toolbar no-print">
+    <a href="javascript:history.back()">&larr; Back</a>
+    <label>Copies: <input type="number" id="copies" value="1" min="1" max="50" style="width:60px;"></label>
+    <button onclick="renderLabels()">Update</button>
+    <button onclick="window.print()">Print</button>
+    <p style="font-size:13px;color:#555;">Standard 40mm x 25mm label size (common for small retail barcode stickers).
+    If your label printer uses a different size, change the width/height in the printer's own settings, or ask me to adjust the label dimensions.</p>
+  </div>
+
+  <div class="label-sheet" id="labelSheet"></div>
+
+  <script>
+    const ITEM = {
+      code: {{ item.item_code|tojson }},
+      name: {{ item.name|tojson }},
+      price: {{ item.selling_price }}
+    };
+
+    function renderLabels() {
+      const count = parseInt(document.getElementById('copies').value) || 1;
+      const sheet = document.getElementById('labelSheet');
+      sheet.innerHTML = '';
+      for (let i = 0; i < count; i++) {
+        const label = document.createElement('div');
+        label.className = 'label';
+        label.innerHTML = `
+          <div class="shop-name">{{ biz_name }}</div>
+          <div class="item-name">${ITEM.name}</div>
+          <svg class="barcode-${i}"></svg>
+          <div class="price">Rs. ${ITEM.price.toFixed(2)}</div>
+        `;
+        sheet.appendChild(label);
+        JsBarcode(label.querySelector('svg'), ITEM.code, {
+          format: "CODE128", width: 1.4, height: 30, fontSize: 10, margin: 2
+        });
+      }
+    }
+    renderLabels();
+  </script>
+</body>
+</html>

@@ -1,106 +1,211 @@
 {% extends "base.html" %}
-{% block title %}New Sale{% endblock %}
+{% block title %}POS - New Sale{% endblock %}
 {% block content %}
-<h4 class="mb-3">New Invoice / Sale</h4>
-<div class="card p-4">
-  <form method="post" id="saleForm">
-    <div class="row g-3 mb-3">
-      <div class="col-md-5">
-        <label class="form-label">Customer</label>
-        <select name="customer_id" class="form-select">
-          <option value="">-- Walk-in customer --</option>
-          {% for c in customers %}
-            <option value="{{ c.id }}">{{ c.name }} ({{ c.customer_code }}){% if c.customer_type=='credit' %} - Credit{% endif %}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="col-md-3">
-        <label class="form-label">Payment Mode</label>
-        <select name="payment_mode" id="paymentMode" class="form-select" onchange="togglePaid()">
-          <option value="cash">Cash</option>
-          <option value="online">Online</option>
-          <option value="credit">Credit</option>
-        </select>
-      </div>
-      <div class="col-md-4" id="paidWrap" style="display:none;">
-        <label class="form-label">Amount Paid Now (credit sale)</label>
-        <input type="number" step="0.01" name="amount_paid" id="amountPaid" class="form-control" value="0">
-      </div>
+<div class="pos-header d-flex align-items-center justify-content-between mb-3">
+  <div class="d-flex align-items-center gap-2">
+    {% if logo_filename %}
+      <img src="{{ url_for('static', filename='img/' ~ logo_filename) }}" alt="logo" style="height:48px;">
+    {% else %}
+      <i class="bi bi-gear-wide-connected" style="font-size:2rem;color:#0d6efd;"></i>
+    {% endif %}
+    <div>
+      <h4 class="mb-0">{{ biz_name }}</h4>
+      <small class="text-muted">Point of Sale</small>
     </div>
-
-    <h6>Items</h6>
-    <table class="table" id="lineTable">
-      <thead><tr><th style="width:40%">Item</th><th>Qty</th><th>Unit Price</th><th>Line Total</th><th></th></tr></thead>
-      <tbody></tbody>
-    </table>
-    <button type="button" class="btn btn-outline-secondary btn-sm mb-3" onclick="addRow()"><i class="bi bi-plus"></i> Add Item</button>
-
-    <div class="row g-3 mb-3">
-      <div class="col-md-3">
-        <label class="form-label">Discount</label>
-        <input type="number" step="0.01" name="discount" id="discount" class="form-control" value="0" oninput="recalc()">
-      </div>
-      <div class="col-md-3">
-        <label class="form-label">Tax</label>
-        <input type="number" step="0.01" name="tax" id="tax" class="form-control" value="0" oninput="recalc()">
-      </div>
-    </div>
-
-    <h5>Subtotal: Rs. <span id="subTotal">0.00</span></h5>
-    <h5>Grand Total: Rs. <span id="grandTotal">0.00</span></h5>
-
-    <button type="submit" class="btn btn-primary">Complete Sale</button>
-    <a href="{{ url_for('sales.list_invoices') }}" class="btn btn-outline-secondary">Cancel</a>
-  </form>
+  </div>
+  <a href="{{ url_for('sales.list_invoices') }}" class="btn btn-outline-secondary btn-sm">Invoice History</a>
 </div>
 
+<form method="post" id="posForm">
+<div class="row g-3">
+  <!-- LEFT: scan + search + item grid -->
+  <div class="col-lg-7">
+    <div class="card p-3 mb-3 pos-scan-card">
+      <div class="row g-2">
+        <div class="col-md-8">
+          <label class="form-label small text-muted mb-1">Scan barcode (USB scanner types here automatically)</label>
+          <input type="text" id="barcodeInput" class="form-control form-control-lg" placeholder="Scan or type item code, then Enter" autofocus>
+        </div>
+        <div class="col-md-4 d-flex align-items-end">
+          <button type="button" class="btn btn-outline-primary btn-lg w-100" onclick="openCameraScanner()">
+            <i class="bi bi-camera"></i> Scan with Camera
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card p-3">
+      <input type="text" id="itemSearch" class="form-control mb-3" placeholder="Or search by name / code / brand..." oninput="filterItems()">
+      <div class="pos-item-grid" id="itemGrid">
+        {% for it in items %}
+        <div class="pos-item-card" data-search="{{ (it.item_code ~ ' ' ~ it.name ~ ' ' ~ (it.brand or ''))|lower }}"
+             onclick="addToCart({{ it.id }}, {{ it.item_code|tojson }}, {{ it.name|tojson }}, {{ it.selling_price }}, {{ it.stock_qty }}, {{ it.unit|tojson }})">
+          <div class="pos-item-name">{{ it.name }}</div>
+          <div class="pos-item-code">{{ it.item_code }}</div>
+          <div class="pos-item-price">{{ it.selling_price|money }}</div>
+          <div class="pos-item-stock {{ 'text-danger' if it.stock_qty <= it.reorder_level else 'text-muted' }}">Stock: {{ it.stock_qty }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: cart + checkout -->
+  <div class="col-lg-5">
+    <div class="card p-3 pos-cart-card">
+      <h6 class="mb-2">Cart</h6>
+      <div id="cartEmpty" class="text-muted small">No items yet &mdash; scan or tap an item to add it.</div>
+      <table class="table table-sm" id="cartTable" style="display:none;">
+        <thead><tr><th>Item</th><th style="width:70px;">Qty</th><th>Price</th><th>Total</th><th></th></tr></thead>
+        <tbody id="cartBody"></tbody>
+      </table>
+
+      <div class="row g-2 mt-2">
+        <div class="col-6">
+          <label class="form-label small">Customer</label>
+          <select name="customer_id" class="form-select form-select-sm">
+            <option value="">-- Walk-in --</option>
+            {% for c in customers %}
+              <option value="{{ c.id }}">{{ c.name }} ({{ c.customer_code }}){% if c.customer_type=='credit' %} - Credit{% endif %}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-6">
+          <label class="form-label small">Payment Mode</label>
+          <select name="payment_mode" id="paymentMode" class="form-select form-select-sm" onchange="togglePaid()">
+            <option value="cash">Cash</option>
+            <option value="online">Online</option>
+            <option value="credit">Credit</option>
+          </select>
+        </div>
+        <div class="col-6" id="paidWrap" style="display:none;">
+          <label class="form-label small">Amount Paid Now</label>
+          <input type="number" step="0.01" name="amount_paid" id="amountPaid" class="form-control form-control-sm" value="0">
+        </div>
+        <div class="col-6">
+          <label class="form-label small">Discount</label>
+          <input type="number" step="0.01" name="discount" id="discount" class="form-control form-control-sm" value="0" oninput="recalc()">
+        </div>
+        <div class="col-6">
+          <label class="form-label small">Tax</label>
+          <input type="number" step="0.01" name="tax" id="tax" class="form-control form-control-sm" value="0" oninput="recalc()">
+        </div>
+      </div>
+
+      <hr>
+      <div class="d-flex justify-content-between"><span>Subtotal</span><strong>Rs. <span id="subTotal">0.00</span></strong></div>
+      <div class="d-flex justify-content-between fs-4"><span>Total</span><strong>Rs. <span id="grandTotal">0.00</span></strong></div>
+
+      <button type="submit" class="btn btn-success btn-lg w-100 mt-3" id="completeBtn" disabled>
+        <i class="bi bi-check-circle"></i> Complete Sale
+      </button>
+    </div>
+  </div>
+</div>
+</form>
+
+<!-- Camera scanner modal -->
+<div class="modal fade" id="cameraModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Scan Barcode / QR</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="stopCameraScanner()"></button>
+      </div>
+      <div class="modal-body">
+        <div id="cameraReader" style="width:100%;"></div>
+        <p class="text-muted small mt-2">Point the camera at the item's barcode label.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 <script>
-const ITEMS = [
-  {% for it in items %}
-  {id: {{ it.id }}, name: {{ (it.item_code ~ ' - ' ~ it.name ~ ' (stock: ' ~ it.stock_qty ~ ')')|tojson }}, price: {{ it.selling_price }}},
-  {% endfor %}
-];
+let cart = {}; // item_id -> {code, name, price, qty, stock, unit}
 
-function itemOptions() {
-  let opts = '<option value="">-- select item --</option>';
-  ITEMS.forEach(it => { opts += `<option value="${it.id}" data-price="${it.price}">${it.name}</option>`; });
-  return opts;
+function fmt(n) { return n.toFixed(2); }
+
+function addToCart(id, code, name, price, stock, unit) {
+  if (!cart[id]) {
+    cart[id] = {code: code, name: name, price: price, qty: 1, stock: stock, unit: unit};
+  } else {
+    cart[id].qty += 1;
+  }
+  renderCart();
 }
 
-function addRow() {
-  const tbody = document.querySelector('#lineTable tbody');
-  const tr = document.createElement('tr');
-  tr.innerHTML = `
-    <td><select name="item_id[]" class="form-select item-select" onchange="onItemChange(this)">${itemOptions()}</select></td>
-    <td><input type="number" step="0.01" name="qty[]" class="form-control qty-input" value="1" oninput="recalc()"></td>
-    <td><input type="number" step="0.01" name="unit_price[]" class="form-control price-input" value="0" oninput="recalc()"></td>
-    <td class="line-total align-middle">0.00</td>
-    <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove(); recalc();">X</button></td>
-  `;
-  tbody.appendChild(tr);
+function addToCartByCode(code) {
+  fetch('{{ url_for("items.lookup_by_code") }}?code=' + encodeURIComponent(code))
+    .then(r => r.json())
+    .then(data => {
+      if (data.found) {
+        addToCart(data.id, data.item_code, data.name, data.selling_price, data.stock_qty, data.unit);
+      } else {
+        alert('No item found with code: ' + code);
+      }
+    });
 }
 
-function onItemChange(sel) {
-  const row = sel.closest('tr');
-  const opt = sel.selectedOptions[0];
-  const price = opt ? (opt.dataset.price || 0) : 0;
-  row.querySelector('.price-input').value = price;
-  recalc();
+function removeFromCart(id) {
+  delete cart[id];
+  renderCart();
 }
 
-function recalc() {
-  let sub = 0;
-  document.querySelectorAll('#lineTable tbody tr').forEach(row => {
-    const qty = parseFloat(row.querySelector('.qty-input').value) || 0;
-    const price = parseFloat(row.querySelector('.price-input').value) || 0;
-    const total = qty * price;
-    row.querySelector('.line-total').textContent = total.toFixed(2);
-    sub += total;
+function updateQty(id, qty) {
+  const q = parseFloat(qty) || 0;
+  if (q <= 0) { removeFromCart(id); return; }
+  cart[id].qty = q;
+  renderCart();
+}
+
+function renderCart() {
+  const body = document.getElementById('cartBody');
+  const ids = Object.keys(cart);
+  body.innerHTML = '';
+  let subtotal = 0;
+
+  if (ids.length === 0) {
+    document.getElementById('cartEmpty').style.display = 'block';
+    document.getElementById('cartTable').style.display = 'none';
+    document.getElementById('completeBtn').disabled = true;
+  } else {
+    document.getElementById('cartEmpty').style.display = 'none';
+    document.getElementById('cartTable').style.display = 'table';
+    document.getElementById('completeBtn').disabled = false;
+  }
+
+  ids.forEach(id => {
+    const it = cart[id];
+    const lineTotal = it.qty * it.price;
+    subtotal += lineTotal;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>
+        <input type="hidden" name="item_id[]" value="${id}">
+        ${it.name}<br><small class="text-muted">${it.code}</small>
+      </td>
+      <td><input type="number" step="0.01" name="qty[]" class="form-control form-control-sm" value="${it.qty}" onchange="updateQty(${id}, this.value)"></td>
+      <td><input type="number" step="0.01" name="unit_price[]" class="form-control form-control-sm" value="${it.price}" onchange="cart[${id}].price=parseFloat(this.value)||0; renderCart();"></td>
+      <td>${fmt(lineTotal)}</td>
+      <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFromCart(${id})">X</button></td>
+    `;
+    body.appendChild(tr);
   });
+
   const discount = parseFloat(document.getElementById('discount').value) || 0;
   const tax = parseFloat(document.getElementById('tax').value) || 0;
-  document.getElementById('subTotal').textContent = sub.toFixed(2);
-  document.getElementById('grandTotal').textContent = (sub - discount + tax).toFixed(2);
+  document.getElementById('subTotal').textContent = fmt(subtotal);
+  document.getElementById('grandTotal').textContent = fmt(subtotal - discount + tax);
+}
+
+function recalc() { renderCart(); }
+
+function filterItems() {
+  const q = document.getElementById('itemSearch').value.toLowerCase();
+  document.querySelectorAll('.pos-item-card').forEach(card => {
+    card.style.display = card.dataset.search.includes(q) ? '' : 'none';
+  });
 }
 
 function togglePaid() {
@@ -108,6 +213,51 @@ function togglePaid() {
   document.getElementById('paidWrap').style.display = (mode === 'credit') ? 'block' : 'none';
 }
 
-addRow();
+// Barcode scanner (USB/keyboard-wedge) input: listens for Enter after a
+// fast burst of keystrokes, which is how virtually all USB barcode
+// scanners behave (they type the code then send Enter).
+const barcodeInput = document.getElementById('barcodeInput');
+barcodeInput.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const code = barcodeInput.value.trim();
+    if (code) {
+      addToCartByCode(code);
+      barcodeInput.value = '';
+    }
+  }
+});
+// keep focus on the scanner input so a USB scanner always has somewhere to type
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('input, select, button, textarea')) {
+    barcodeInput.focus();
+  }
+});
+
+let html5QrCode = null;
+function openCameraScanner() {
+  const modal = new bootstrap.Modal(document.getElementById('cameraModal'));
+  modal.show();
+  html5QrCode = new Html5Qrcode("cameraReader");
+  html5QrCode.start(
+    { facingMode: "environment" },
+    { fps: 10, qrbox: 250 },
+    (decodedText) => {
+      addToCartByCode(decodedText);
+      stopCameraScanner();
+      bootstrap.Modal.getInstance(document.getElementById('cameraModal')).hide();
+    },
+    () => {}
+  ).catch(err => {
+    alert('Could not access camera: ' + err);
+  });
+}
+function stopCameraScanner() {
+  if (html5QrCode) {
+    html5QrCode.stop().catch(() => {});
+  }
+}
+
+renderCart();
 </script>
 {% endblock %}

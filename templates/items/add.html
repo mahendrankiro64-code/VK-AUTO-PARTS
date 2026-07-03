@@ -48,9 +48,28 @@
         <input type="number" step="0.01" name="stock_qty" class="form-control" value="{{ item.stock_qty if item else 0 }}" {% if item %}readonly{% endif %}>
         {% if item %}<small class="text-muted">Use Purchase Entry to add more stock.</small>{% endif %}
       </div>
+      <div class="col-md-6">
+        <label class="form-label">Rack</label>
+        <select name="rack_id" class="form-select">
+          <option value="">-- none --</option>
+          {% for r in racks %}
+            <option value="{{ r.id }}" {% if item and item.rack_id == r.id %}selected{% endif %}>{{ r.name }}</option>
+          {% endfor %}
+        </select>
+        <small class="text-muted">Manage rack names from Inventory &rarr; Racks.</small>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Row / Shelf</label>
+        <input type="text" name="row_location" class="form-control" placeholder="e.g. Row 3, Top Shelf" value="{{ item.row_location if item else '' }}">
+      </div>
     </div>
     <button type="submit" class="btn btn-primary mt-3">Save Item</button>
     <a href="{{ url_for('items.list_items') }}" class="btn btn-outline-secondary mt-3">Cancel</a>
+    {% if item %}
+      <a href="{{ url_for('items.print_barcode', item_id=item.id) }}" class="btn btn-outline-dark mt-3" target="_blank">
+        <i class="bi bi-upc-scan"></i> Print Barcode Label
+      </a>
+    {% endif %}
   </form>
 </div>
 {% endblock %}

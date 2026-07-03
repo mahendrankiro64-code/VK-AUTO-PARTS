@@ -1,6 +1,6 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, g
+from flask import Blueprint, render_template, request, redirect, url_for, flash, g, jsonify
 from db import get_db, next_sequence_code
-from auth import login_required
+from auth import login_required, permission_required
 from helpers import today_str, now_str
 
 bp = Blueprint("sales", __name__, url_prefix="/sales")
@@ -27,7 +27,7 @@ def list_invoices():
 
 
 @bp.route("/new", methods=("GET", "POST"))
-@login_required
+@permission_required("perm_sales")
 def new_invoice():
     db = get_db()
     customers = db.execute("SELECT * FROM customers WHERE active=1 ORDER BY name").fetchall()
@@ -104,8 +104,9 @@ def new_invoice():
         for item_row, qty_f, price_f, line_total in line_items:
             db.execute(
                 """INSERT INTO invoice_items (invoice_id, item_id, item_name, qty,
-                   unit_price, total) VALUES (?,?,?,?,?,?)""",
-                (invoice_id, item_row["id"], item_row["name"], qty_f, price_f, line_total),
+                   unit_price, total, cost_price_at_sale) VALUES (?,?,?,?,?,?,?)""",
+                (invoice_id, item_row["id"], item_row["name"], qty_f, price_f, line_total,
+                 item_row["cost_price"]),
             )
             db.execute(
                 "UPDATE items SET stock_qty = stock_qty - ? WHERE id=?",
@@ -146,7 +147,7 @@ def view_invoice(invoice_id):
 
 
 @bp.route("/<int:invoice_id>/cancel", methods=("POST",))
-@login_required
+@permission_required("perm_cancel")
 def cancel_invoice(invoice_id):
     db = get_db()
     invoice = db.execute("SELECT * FROM invoices WHERE id=?", (invoice_id,)).fetchone()

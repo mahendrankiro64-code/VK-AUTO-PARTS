@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Accounts{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4>Accounts &amp; Profit</h4>
+  <div>
+    <a href="{{ url_for('accounts.expenses') }}" class="btn btn-outline-secondary">Day-to-Day Expenses</a>
+    <a href="{{ url_for('accounts.expense_categories') }}" class="btn btn-outline-secondary">Expense Categories</a>
+  </div>
+</div>
+<p class="text-muted">Simple cash-book style numbers — no double-entry bookkeeping needed. This is revenue from sales, minus what those parts actually cost you, minus your day-to-day shop expenses.</p>
+
+<form class="row g-2 mb-3" method="get">
+  <div class="col-auto"><input type="date" name="from" class="form-control" value="{{ date_from }}"></div>
+  <div class="col-auto"><input type="date" name="to" class="form-control" value="{{ date_to }}"></div>
+  <div class="col-auto"><button class="btn btn-outline-secondary">Filter</button></div>
+</form>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-3"><div class="card p-3"><div class="text-muted small">Sales Revenue</div><h4>{{ revenue|money }}</h4></div></div>
+  <div class="col-md-3"><div class="card p-3"><div class="text-muted small">Cost of Parts Sold</div><h4 class="text-warning">{{ cogs|money }}</h4></div></div>
+  <div class="col-md-3"><div class="card p-3"><div class="text-muted small">Gross Profit</div><h4 class="text-info">{{ gross_profit|money }}</h4></div></div>
+  <div class="col-md-3"><div class="card p-3"><div class="text-muted small">Shop Expenses</div><h4 class="text-danger">{{ total_expenses|money }}</h4></div></div>
+</div>
+
+<div class="card p-4 mb-3 text-center">
+  <div class="text-muted">Net Profit ({{ date_from }} to {{ date_to }})</div>
+  <h1 class="{{ 'text-success' if net_profit >= 0 else 'text-danger' }}">{{ net_profit|money }}</h1>
+</div>
+
+<div class="card p-3">
+  <h6>Expense Breakdown</h6>
+  <table class="table table-sm">
+    <thead><tr><th>Category</th><th>Amount</th></tr></thead>
+    <tbody>
+    {% for e in expense_breakdown %}
+      <tr><td>{{ e.category }}</td><td>{{ e.total|money }}</td></tr>
+    {% else %}
+      <tr><td colspan="2" class="text-muted">No expenses recorded in this range.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<h4 class="mb-3">Invoice &amp; Shop Settings</h4>
+<div class="card p-4" style="max-width:700px;">
+  <form method="post">
+    <div class="mb-3">
+      <label class="form-label">Shop Name</label>
+      <input type="text" name="shop_name" class="form-control" value="{{ values.shop_name }}">
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Address</label>
+      <input type="text" name="shop_address" class="form-control" value="{{ values.shop_address }}">
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Phone</label>
+      <input type="text" name="shop_phone" class="form-control" value="{{ values.shop_phone }}">
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Invoice Footer Note</label>
+      <input type="text" name="invoice_footer_note" class="form-control" value="{{ values.invoice_footer_note }}">
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Logo filename</label>
+      <input type="text" name="logo_filename" class="form-control" placeholder="e.g. logo.png" value="{{ values.logo_filename }}">
+      <small class="text-muted">
+        Upload your logo image directly to your GitHub repo, inside the <code>static/img/</code> folder,
+        then type the exact filename here (e.g. <code>logo.png</code>). Once you commit that file to GitHub,
+        Render redeploys automatically and your logo shows up on the POS screen and invoices.
+      </small>
+    </div>
+    <button class="btn btn-primary">Save Settings</button>
+  </form>
+</div>
+{% endblock %}

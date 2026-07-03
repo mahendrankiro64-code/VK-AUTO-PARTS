@@ -4,13 +4,23 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h4>Inventory</h4>
   <div>
+    <a href="{{ url_for('items.categories') }}" class="btn btn-outline-secondary">Categories</a>
+    <a href="{{ url_for('racks.list_racks') }}" class="btn btn-outline-secondary">Racks</a>
     <a href="{{ url_for('items.add_item') }}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Add Item</a>
   </div>
 </div>
 
 <form class="row g-2 mb-3" method="get">
   <div class="col-md-4">
-    <input type="text" name="q" class="form-control" placeholder="Search name, code, brand" value="{{ q }}">
+    <input type="text" name="q" class="form-control" placeholder="Search name, code, brand, or rack/row" value="{{ q }}">
+  </div>
+  <div class="col-md-3">
+    <select name="rack_id" class="form-select">
+      <option value="">-- all racks --</option>
+      {% for r in racks %}
+        <option value="{{ r.id }}" {% if rack_id == r.id|string %}selected{% endif %}>{{ r.name }}</option>
+      {% endfor %}
+    </select>
   </div>
   <div class="col-auto form-check mt-2">
     <input class="form-check-input" type="checkbox" name="low_stock" value="1" id="lowstock" {% if low_stock_only %}checked{% endif %}>
@@ -21,7 +31,7 @@
 
 <div class="card p-3">
 <table class="table table-hover">
-  <thead><tr><th>Code</th><th>Name</th><th>Category</th><th>Brand</th><th>Cost</th><th>Price</th><th>Stock</th><th></th></tr></thead>
+  <thead><tr><th>Code</th><th>Name</th><th>Category</th><th>Brand</th><th>Location</th><th>Cost</th><th>Price</th><th>Stock</th><th></th></tr></thead>
   <tbody>
   {% for it in items %}
     <tr class="{{ 'table-danger' if it.stock_qty <= it.reorder_level else '' }}">
@@ -29,18 +39,23 @@
       <td>{{ it.name }}</td>
       <td>{{ it.category_name or '-' }}</td>
       <td>{{ it.brand or '-' }}</td>
+      <td>
+        {% if it.rack_name %}<span class="badge bg-info text-dark">{{ it.rack_name }}</span>{% endif %}
+        {{ it.row_location or '' }}
+      </td>
       <td>{{ it.cost_price|money }}</td>
       <td>{{ it.selling_price|money }}</td>
       <td>{{ it.stock_qty }} {{ it.unit }}</td>
       <td>
         <a href="{{ url_for('items.edit_item', item_id=it.id) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
+        <a href="{{ url_for('items.print_barcode', item_id=it.id) }}" class="btn btn-sm btn-outline-dark" target="_blank" title="Print barcode label"><i class="bi bi-upc-scan"></i></a>
         <form method="post" action="{{ url_for('items.delete_item', item_id=it.id) }}" class="d-inline" onsubmit="return confirm('Remove this item?');">
           <button class="btn btn-sm btn-outline-danger">Remove</button>
         </form>
       </td>
     </tr>
   {% else %}
-    <tr><td colspan="8" class="text-muted">No items found.</td></tr>
+    <tr><td colspan="9" class="text-muted">No items found.</td></tr>
   {% endfor %}
   </tbody>
 </table>

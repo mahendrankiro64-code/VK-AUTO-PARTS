@@ -28,7 +28,54 @@ both problems for free.
   be exported to Excel.
 - **Excel / Google Sheets**: bulk-upload items, customers, and purchase entries from a spreadsheet;
   download ready-made templates from the Excel page in the app.
-- **Users**: admin and cashier roles; admins manage staff logins.
+- **Users**: admin and cashier logins, with **per-feature permission toggles** for cashiers (sales,
+  quotations, purchases, items, customers, suppliers, day-end, reports, accounts, cancel invoices) —
+  admins always have every permission and can grant/revoke any toggle from the Users page any time.
+- **Quotations**: build a price quote for a customer, print/share it, and later convert it directly
+  into a real invoice with one click — even weeks later. Stock is only deducted at conversion time,
+  and stock/prices are re-checked at that moment.
+- **Point-of-Sale style Sales screen**: redesigned "New Sale" page with your shop logo, a scrollable
+  item grid, live search, and a running cart — built to be fast at the counter.
+- **Barcodes**: every item gets a scannable Code128 barcode automatically (it's just the item's own
+  auto-generated code) with a ready-to-print label page (standard 40mm x 25mm sticker size). Scan at
+  the POS screen with a USB/plug-in barcode scanner (works instantly, no setup — scanners just "type"
+  into the search box) or with a phone/tablet camera via the on-screen "Scan with Camera" button.
+- **Rack / row location system**: tag every item with a rack name and row/shelf so staff can find
+  parts fast on a busy shelf; filter the inventory list by rack, and manage rack names from
+  Inventory → Racks.
+- **Accounts & Profit**: a simple, Sri Lankan cash-book style Accounts tab — no double-entry
+  bookkeeping. Record day-to-day shop expenses (fuel, tea, rent, salaries, etc.) against categories,
+  and see Revenue, Cost of Parts Sold, Gross Profit, Shop Expenses, and Net Profit for any date range.
+- **Invoice & Shop Settings**: admins can set the shop name, address, phone, invoice footer note, and
+  logo from Settings — these show up on the POS screen, the nav bar, and every printed invoice.
+
+## Applying this update to your existing deployment
+
+If you already deployed VK Auto Parts once (Supabase + Render), you do **not** need to redo Step 1
+or Step 3 below, and you do **not** need to re-create your database. This update only changes app
+code and adds new tables/columns automatically the next time the app starts (the schema uses
+`CREATE TABLE IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS` everywhere, so it's safe to run against
+your live database — nothing existing gets deleted or overwritten).
+
+**What to do:** on your GitHub repo page, upload/overwrite every file from this zip (drag the whole
+`vk_auto_parts` folder contents onto GitHub's "Add file → Upload files" screen, same way you did the
+first time) — it's simplest to just re-upload everything rather than picking individual files.
+Once you commit, Render will automatically detect the change and redeploy within a couple of
+minutes. Log in and refresh — the new features (Quotations, Accounts, Racks, Settings, barcode
+printing, the new POS Sales screen, and per-user permissions on the Users page) will be there.
+
+**Two things only you can do, after this update is live:**
+
+1. **Your logo** — go to your GitHub repo, open the `static/img/` folder, and upload your actual
+   shop logo image there (any filename, e.g. `logo.png`). Then in the app, go to **Settings**
+   (top-right dropdown menu, admin only) and type that exact filename into the "Logo filename" box.
+   Save, and it'll appear on the POS screen, the nav bar, and every invoice.
+2. **Shop address / phone / invoice footer** — also in **Settings**, fill in your phone number and
+   confirm the address, and change the invoice footer note if you'd like something other than
+   "Thank you for your business!".
+
+Everything else (racks, categories, expense categories, staff permissions) you set up from inside
+the app itself — no file editing needed.
 
 ## Step 1 — Create your free database (Supabase)
 

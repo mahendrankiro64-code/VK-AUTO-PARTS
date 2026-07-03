@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}New Quotation{% endblock %}
+{% block content %}
+<h4 class="mb-3">New Quotation</h4>
+<div class="card p-4">
+  <form method="post" id="quoteForm">
+    <div class="row g-3 mb-3">
+      <div class="col-md-4">
+        <label class="form-label">Customer</label>
+        <select name="customer_id" class="form-select">
+          <option value="">-- Walk-in / not yet decided --</option>
+          {% for c in customers %}
+            <option value="{{ c.id }}">{{ c.name }} ({{ c.customer_code }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Valid Until (optional)</label>
+        <input type="date" name="valid_until" class="form-control">
+      </div>
+    </div>
+
+    <h6>Items</h6>
+    <table class="table" id="lineTable">
+      <thead><tr><th style="width:40%">Item</th><th>Qty</th><th>Unit Price</th><th>Line Total</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <button type="button" class="btn btn-outline-secondary btn-sm mb-3" onclick="addRow()"><i class="bi bi-plus"></i> Add Item</button>
+
+    <div class="row g-3 mb-3">
+      <div class="col-md-3">
+        <label class="form-label">Discount</label>
+        <input type="number" step="0.01" name="discount" id="discount" class="form-control" value="0" oninput="recalc()">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Tax</label>
+        <input type="number" step="0.01" name="tax" id="tax" class="form-control" value="0" oninput="recalc()">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Notes</label>
+        <input type="text" name="notes" class="form-control" placeholder="e.g. price valid for genuine Bajaj parts only">
+      </div>
+    </div>
+
+    <h5>Subtotal: Rs. <span id="subTotal">0.00</span></h5>
+    <h5>Total: Rs. <span id="grandTotal">0.00</span></h5>
+
+    <button type="submit" class="btn btn-primary">Save Quotation</button>
+    <a href="{{ url_for('quotations.list_quotations') }}" class="btn btn-outline-secondary">Cancel</a>
+  </form>
+</div>
+
+<script>
+const ITEMS = [
+  {% for it in items %}
+  {id: {{ it.id }}, name: {{ (it.item_code ~ ' - ' ~ it.name)|tojson }}, price: {{ it.selling_price }}},
+  {% endfor %}
+];
+
+function itemOptions() {
+  let opts = '<option value="">-- select item --</option>';
+  ITEMS.forEach(it => { opts += `<option value="${it.id}" data-price="${it.price}">${it.name}</option>`; });
+  return opts;
+}
+
+function addRow() {
+  const tbody = document.querySelector('#lineTable tbody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><select name="item_id[]" class="form-select item-select" onchange="onItemChange(this)">${itemOptions()}</select></td>
+    <td><input type="number" step="0.01" name="qty[]" class="form-control qty-input" value="1" oninput="recalc()"></td>
+    <td><input type="number" step="0.01" name="unit_price[]" class="form-control price-input" value="0" oninput="recalc()"></td>
+    <td class="line-total align-middle">0.00</td>
+    <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove(); recalc();">X</button></td>
+  `;
+  tbody.appendChild(tr);
+}
+
+function onItemChange(sel) {
+  const row = sel.closest('tr');
+  const opt = sel.selectedOptions[0];
+  const price = opt ? (opt.dataset.price || 0) : 0;
+  row.querySelector('.price-input').value = price;
+  recalc();
+}
+
+function recalc() {
+  let sub = 0;
+  document.querySelectorAll('#lineTable tbody tr').forEach(row => {
+    const qty = parseFloat(row.querySelector('.qty-input').value) || 0;
+    const price = parseFloat(row.querySelector('.price-input').value) || 0;
+    const total = qty * price;
+    row.querySelector('.line-total').textContent = total.toFixed(2);
+    sub += total;
+  });
+  const discount = parseFloat(document.getElementById('discount').value) || 0;
+  const tax = parseFloat(document.getElementById('tax').value) || 0;
+  document.getElementById('subTotal').textContent = sub.toFixed(2);
+  document.getElementById('grandTotal').textContent = (sub - discount + tax).toFixed(2);
+}
+
+addRow();
+</script>
+{% endblock %}

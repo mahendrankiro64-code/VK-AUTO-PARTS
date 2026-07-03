@@ -6,3 +6,28 @@ body { background-color: #f4f6f9; }
   .no-print { display: none !important; }
   body { background: #fff; }
 }
+
+/* Point of Sale screen */
+.pos-scan-card { border: 2px solid #0d6efd22; background: linear-gradient(135deg, #eef4ff, #ffffff); }
+.pos-item-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.pos-item-card {
+  border: 1px solid #e2e6ea;
+  border-radius: .5rem;
+  padding: 10px;
+  cursor: pointer;
+  background: #fff;
+  transition: box-shadow .15s, transform .1s;
+}
+.pos-item-card:hover { box-shadow: 0 3px 10px rgba(13,110,253,.15); transform: translateY(-2px); border-color: #0d6efd66; }
+.pos-item-name { font-weight: 600; font-size: .9rem; line-height: 1.2; min-height: 2.2em; }
+.pos-item-code { font-size: .75rem; color: #888; }
+.pos-item-price { font-weight: 700; color: #0d6efd; margin-top: 4px; }
+.pos-item-stock { font-size: .75rem; }
+.pos-cart-card { position: sticky; top: 75px; }
+.pos-header h4 { font-weight: 700; }

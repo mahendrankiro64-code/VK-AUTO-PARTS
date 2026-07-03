@@ -11,6 +11,19 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TEXT DEFAULT to_char(now(), 'YYYY-MM-DD HH24:MI:SS')
 );
 
+-- Per-feature staff permissions (admins always have every permission,
+-- regardless of these flags -- see auth.py permission_required()).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS perm_sales INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS perm_purchases INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS perm_items INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS perm_customers INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS perm_suppliers INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS perm_reports INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS perm_accounts INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS perm_dayend INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS perm_quotations INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS perm_cancel INTEGER NOT NULL DEFAULT 0;
+
 CREATE TABLE IF NOT EXISTS categories (
     id SERIAL PRIMARY KEY,
     name TEXT UNIQUE NOT NULL,
@@ -20,6 +33,11 @@ CREATE TABLE IF NOT EXISTS categories (
 CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT
+);
+
+CREATE TABLE IF NOT EXISTS racks (
+    id SERIAL PRIMARY KEY,
+    name TEXT UNIQUE NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS items (
@@ -37,6 +55,13 @@ CREATE TABLE IF NOT EXISTS items (
     created_at TEXT DEFAULT to_char(now(), 'YYYY-MM-DD HH24:MI:SS'),
     FOREIGN KEY (category_id) REFERENCES categories(id)
 );
+
+-- Rack + row shop location, so staff can physically find a part fast.
+-- The barcode printed/scanned for every item is simply its item_code
+-- (already unique and auto-generated), rendered as a Code128 barcode --
+-- no separate barcode column needed.
+ALTER TABLE items ADD COLUMN IF NOT EXISTS rack_id INTEGER REFERENCES racks(id);
+ALTER TABLE items ADD COLUMN IF NOT EXISTS row_location TEXT;
 
 CREATE TABLE IF NOT EXISTS customers (
     id SERIAL PRIMARY KEY,
@@ -120,6 +145,42 @@ CREATE TABLE IF NOT EXISTS invoice_items (
     FOREIGN KEY (item_id) REFERENCES items(id)
 );
 
+-- Snapshot of the item's cost price at the moment of sale, so profit
+-- calculations stay accurate even after cost_price later changes.
+ALTER TABLE invoice_items ADD COLUMN IF NOT EXISTS cost_price_at_sale DOUBLE PRECISION NOT NULL DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS quotations (
+    id SERIAL PRIMARY KEY,
+    quotation_no TEXT UNIQUE NOT NULL,
+    customer_id INTEGER,
+    quotation_date TEXT NOT NULL,
+    valid_until TEXT,
+    subtotal DOUBLE PRECISION NOT NULL DEFAULT 0,
+    discount DOUBLE PRECISION NOT NULL DEFAULT 0,
+    tax DOUBLE PRECISION NOT NULL DEFAULT 0,
+    total_amount DOUBLE PRECISION NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'open',   -- 'open', 'converted', 'cancelled'
+    converted_invoice_id INTEGER,
+    notes TEXT,
+    created_by INTEGER,
+    created_at TEXT DEFAULT to_char(now(), 'YYYY-MM-DD HH24:MI:SS'),
+    FOREIGN KEY (customer_id) REFERENCES customers(id),
+    FOREIGN KEY (converted_invoice_id) REFERENCES invoices(id),
+    FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS quotation_items (
+    id SERIAL PRIMARY KEY,
+    quotation_id INTEGER NOT NULL,
+    item_id INTEGER NOT NULL,
+    item_name TEXT NOT NULL,
+    qty DOUBLE PRECISION NOT NULL,
+    unit_price DOUBLE PRECISION NOT NULL,
+    total DOUBLE PRECISION NOT NULL,
+    FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE CASCADE,
+    FOREIGN KEY (item_id) REFERENCES items(id)
+);
+
 CREATE TABLE IF NOT EXISTS payments (
     id SERIAL PRIMARY KEY,
     customer_id INTEGER NOT NULL,
@@ -157,6 +218,26 @@ CREATE TABLE IF NOT EXISTS day_end (
     FOREIGN KEY (closed_by) REFERENCES users(id)
 );
 
+CREATE TABLE IF NOT EXISTS expense_categories (
+    id SERIAL PRIMARY KEY,
+    name TEXT UNIQUE NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS expenses (
+    id SERIAL PRIMARY KEY,
+    expense_date TEXT NOT NULL,
+    category_id INTEGER,
+    description TEXT,
+    amount DOUBLE PRECISION NOT NULL,
+    payment_mode TEXT NOT NULL DEFAULT 'cash',
+    created_by INTEGER,
+    created_at TEXT DEFAULT to_char(now(), 'YYYY-MM-DD HH24:MI:SS'),
+    FOREIGN KEY (category_id) REFERENCES expense_categories(id),
+    FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_invoices_business_date ON invoices(business_date);
 CREATE INDEX IF NOT EXISTS idx_items_name ON items(name);
 CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name);
+CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(expense_date);
+CREATE INDEX IF NOT EXISTS idx_quotations_status ON quotations(status);

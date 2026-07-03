@@ -15,9 +15,15 @@
 
 <div class="card p-4" id="printArea">
   <div class="d-flex justify-content-between">
-    <div>
-      <h3>VK Auto Parts</h3>
-      <p class="mb-0 text-muted">Auto Parts Dealer</p>
+    <div class="d-flex align-items-center">
+      {% if logo_filename %}
+      <img src="{{ url_for('static', filename='img/' ~ logo_filename) }}" alt="{{ biz_name }}" style="height:56px;width:auto;margin-right:12px;">
+      {% endif %}
+      <div>
+        <h3 class="mb-0">{{ biz_name }}</h3>
+        {% if shop_address %}<p class="mb-0 text-muted">{{ shop_address }}</p>{% endif %}
+        {% if shop_phone %}<p class="mb-0 text-muted">{{ shop_phone }}</p>{% endif %}
+      </div>
     </div>
     <div class="text-end">
       <h5>Invoice: {{ invoice.invoice_no }}</h5>
@@ -51,6 +57,6 @@
       </table>
     </div>
   </div>
-  <p class="text-center text-muted mt-4">Thank you for your business!</p>
+  <p class="text-center text-muted mt-4">{{ invoice_footer_note }}</p>
 </div>
 {% endblock %}

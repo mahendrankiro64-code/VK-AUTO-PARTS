@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Expense Categories{% endblock %}
+{% block content %}
+<h4 class="mb-3">Expense Categories</h4>
+<div class="row">
+  <div class="col-md-5">
+    <div class="card p-3">
+      <h6>Add Category</h6>
+      <form method="post">
+        <div class="mb-2">
+          <input type="text" name="name" class="form-control" placeholder="Category name" required>
+        </div>
+        <button class="btn btn-primary">Add</button>
+      </form>
+    </div>
+  </div>
+  <div class="col-md-7">
+    <div class="card p-3">
+      <table class="table table-sm">
+        <thead><tr><th>Name</th></tr></thead>
+        <tbody>
+        {% for c in categories %}
+          <tr><td>{{ c.name }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
